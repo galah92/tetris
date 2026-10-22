@@ -402,6 +402,49 @@
   --text-shadow: none;
 }
 
+[data-theme="kodansi_dark"], [data-theme="koda_dark"] {
+  color-scheme: dark;
+  --bg: #101010;
+  --bg-glow: #101010;
+  --panel: transparent;
+  --line: #272727;
+  --text: #ffffff;
+  --muted: #50585d;
+  --board: #101010;
+  --board-line: rgba(255,255,255, 0.1);
+  --card: #101010;
+  --veil: rgba(16,16,16,0.7);
+  --pri-bg: #ffffff;
+  --pri-fg: #101010;
+  --soft: rgba(255,255,255, 0.05);
+  --soft-2: rgba(255,255,255, 0.1);
+  --shadow: none;
+  --text-shadow: none;
+  --radius: 2px;
+  --font: "Maple Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+[data-theme="kodansi_light"], [data-theme="koda_light"] {
+  color-scheme: light;
+  --bg: #faf9f5;
+  --bg-glow: #faf9f5;
+  --panel: transparent;
+  --line: #ebebeb;
+  --text: #101010;
+  --muted: #969ba5;
+  --board: #faf9f5;
+  --board-line: rgba(16,16,16, 0.1);
+  --card: #faf9f5;
+  --veil: rgba(250,249,245,0.7);
+  --pri-bg: #101010;
+  --pri-fg: #faf9f5;
+  --soft: rgba(16,16,16, 0.05);
+  --soft-2: rgba(16,16,16, 0.1);
+  --shadow: none;
+  --text-shadow: none;
+  --radius: 2px;
+  --font: "Maple Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
 :root {
   --c: 30px;
   --gap: calc(var(--c) * 0.35);

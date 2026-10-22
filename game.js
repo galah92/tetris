@@ -61,6 +61,26 @@
   // Each theme pairs a palette with a tile style. `board` is the solid board colour used on canvases,
   // `flash` the rgb used for lock flashes and the line-clear sweep.
   const THEMES = {
+    // Inspired by Gal's Ghostty setup (Koda / Kodansi): they follow the system light/dark appearance,
+    // like `theme = dark:…,light:…`, with crisp block-cursor tiles and a monospace UI.
+    kodansi: { name: 'Kodansi', auto: ['kodansi_dark', 'kodansi_light'] },
+    koda: { name: 'Koda', auto: ['koda_dark', 'koda_light'] },
+    kodansi_dark: {
+      hidden: true, name: 'Kodansi', style: 'block', meta: '#101010', board: '#101010', dead: '#50585d', flash: '255,255,255', grid: 0.3,
+      colors: { I: '#5abfb5', J: '#458ee6', L: '#ff5733', O: '#d9ba73', S: '#a3d6a3', T: '#f2a4db', Z: '#ff7676' },
+    },
+    kodansi_light: {
+      hidden: true, name: 'Kodansi', style: 'block', meta: '#faf9f5', board: '#faf9f5', dead: '#969ba5', flash: '16,16,16', grid: 0.35,
+      colors: { I: '#007d7d', J: '#0253be', L: '#c45a00', O: '#b07700', S: '#407f00', T: '#a200d1', Z: '#ca0043' },
+    },
+    koda_dark: {
+      hidden: true, name: 'Koda', style: 'block', meta: '#101010', board: '#101010', dead: '#50585d', flash: '255,255,255', grid: 0.3,
+      colors: { I: '#5abfb5', J: '#a5adce', L: '#ff5733', O: '#d9ba73', S: '#86cd82', T: '#f4b8e4', Z: '#ff7676' },
+    },
+    koda_light: {
+      hidden: true, name: 'Koda', style: 'block', meta: '#faf9f5', board: '#faf9f5', dead: '#969ba5', flash: '16,16,16', grid: 0.35,
+      colors: { I: '#009797', J: '#3d3d3d', L: '#f30052', O: '#926200', S: '#4f9a00', T: '#c301fb', Z: '#ca0043' },
+    },
     midnight: {
       name: 'Midnight', style: 'soft', meta: '#0c0d11', board: '#07080b', dead: '#3a3d4e', flash: '255,255,255',
       colors: { I: '#45c4d4', J: '#5672e8', L: '#e8954a', O: '#e9c75a', S: '#62bf78', T: '#9a72e6', Z: '#e25768' },
@@ -164,7 +184,9 @@
     sound: true, music: false, ghost: true, haptics: true, pad: false, rot180: false,
     sens: 1, das: 150, arr: 33, startLevel: 1, theme: 'midnight', mode: 'marathon',
   }, store.get('settings', {}));
-  if (!THEMES[settings.theme]) settings.theme = 'midnight';
+  if (!THEMES[settings.theme] || THEMES[settings.theme].hidden) settings.theme = 'midnight';
+  const darkMQ = matchMedia('(prefers-color-scheme: dark)');
+  const resolveTheme = key => { const a = THEMES[key].auto; return a ? a[darkMQ.matches ? 0 : 1] : key; };
   if (!MODES[settings.mode]) settings.mode = 'marathon';
   const saveSettings = () => store.set('settings', settings);
 
@@ -603,7 +625,7 @@
 
   // ---------- Rendering ----------
   let c = 30, dpr = 1, sprites = {}, bgCanvas = null, layoutMode = 'side';
-  let theme = THEMES[settings.theme];
+  let theme = THEMES[resolveTheme(settings.theme)];
   const hexToRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const mix = (hex, amt) => {
     const [r, g, b] = hexToRgb(hex), t = amt > 0 ? 255 : 0, a = Math.abs(amt);
@@ -648,6 +670,13 @@
         const i1 = s * 0.2, i2 = s * 0.33;
         ctx.fillStyle = th.board; ctx.fillRect(x + i1, y + i1, s - 2 * i1, s - 2 * i1);
         ctx.fillStyle = color; ctx.fillRect(x + i2, y + i2, s - 2 * i2, s - 2 * i2);
+        break;
+      }
+      case 'block': {
+        // A terminal block cursor: square, sharp, one hairline of gap.
+        const gap = Math.max(1, Math.round(s * 0.05));
+        ctx.fillStyle = color;
+        ctx.fillRect(x + gap / 2, y + gap / 2, s - gap, s - gap);
         break;
       }
       case 'calm': {
@@ -1009,13 +1038,16 @@
   }
 
   function applyTheme() {
-    theme = THEMES[settings.theme];
-    document.documentElement.dataset.theme = settings.theme;
+    const key = resolveTheme(settings.theme);
+    theme = THEMES[key];
+    document.documentElement.dataset.theme = key;
     $('meta[name="theme-color"]').setAttribute('content', theme.meta);
     makeSprites();
     drawBoard();
     drawSide();
   }
+
+  darkMQ.addEventListener('change', () => { if (THEMES[settings.theme].auto) { applyTheme(); if (currentCard() === 'settings') renderSettings(); } });
 
   // ---------- Cards ----------
   let cardStack = [];
@@ -1146,6 +1178,7 @@
     const tbox = $('#themes');
     tbox.innerHTML = '';
     for (const [key, t] of Object.entries(THEMES)) {
+      if (t.hidden) continue;
       const b = document.createElement('button');
       b.className = 'theme' + (key === settings.theme ? ' on' : '');
       // Swatch: three tiles drawn in the theme's own style.
@@ -1153,8 +1186,15 @@
       cv.width = sz * 3 * d + 8 * d; cv.height = sz * d + 8 * d;
       cv.style.width = sz * 3 + 8 + 'px'; cv.style.height = sz + 8 + 'px';
       const x = cv.getContext('2d'); x.scale(d, d);
-      x.fillStyle = t.board; rr(x, 0, 0, sz * 3 + 8, sz + 8, 5); x.fill();
-      ['T', 'I', 'Z'].forEach((p, k) => drawBlock(x, 4 + k * sz, 4, sz, t.colors[p], t, k));
+      // Auto themes show their dark and light halves side by side.
+      const [ta, tb] = t.auto ? t.auto.map(k => THEMES[k]) : [t, t];
+      const W = sz * 3 + 8;
+      x.save(); rr(x, 0, 0, W, sz + 8, 5); x.clip();
+      x.fillStyle = ta.board; x.fillRect(0, 0, W, sz + 8);
+      if (t.auto) { x.fillStyle = tb.board; x.beginPath(); x.moveTo(W * 0.62, 0); x.lineTo(W, 0); x.lineTo(W, sz + 8); x.lineTo(W * 0.38, sz + 8); x.fill(); }
+      x.restore();
+      ['T', 'I', 'Z'].forEach((p, k) => { const th = k < 2 ? ta : tb; drawBlock(x, 4 + k * sz, 4, sz, th.colors[p], th, k); });
+      if (t.auto) b.title = 'Follows your system light/dark setting';
       b.appendChild(cv);
       b.appendChild(document.createTextNode(t.name));
       b.addEventListener('click', () => { settings.theme = key; saveSettings(); applyTheme(); renderSettings(); });
