@@ -3,7 +3,6 @@
   // ---------- Constants ----------
   const COLS = 10, ROWS = 20, BUF = 3, H = ROWS + BUF;
   const TYPES = 'IJLOSTZ';
-  const COLORS = { I: '#45c4d4', J: '#5672e8', L: '#e8954a', O: '#e9c75a', S: '#62bf78', T: '#9a72e6', Z: '#e25768' };
   const SHAPES = {
     I: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
     J: [[1, 0, 0], [1, 1, 1], [0, 0, 0]],
@@ -47,16 +46,48 @@
     '3>0': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
     '0>3': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
   };
+  const KICKS_180 = [[0, 0], [0, 1], [1, 0], [-1, 0], [1, 1], [-1, 1], [0, -1]];
 
-  const DAS = 150, ARR = 33, LOCK_DELAY = 500, MAX_RESETS = 15;
+  const LOCK_DELAY = 500, MAX_RESETS = 15;
   const gravityMs = lv => 1000 * Math.pow(Math.max(0.8 - (lv - 1) * 0.007, 0.05), lv - 1);
+
+  const MODES = {
+    marathon: { name: 'Marathon', desc: 'Endless. Speeds up every 10 lines.', levels: true, rank: 'score' },
+    sprint: { name: 'Sprint', desc: 'Clear 40 lines as fast as you can.', goal: 40, rank: 'time' },
+    ultra: { name: 'Ultra', desc: 'Highest score in 2 minutes.', limit: 120000, levels: true, rank: 'score' },
+    zen: { name: 'Zen', desc: 'No speed-up, no game over. Just play.', zen: true, rank: 'score' },
+  };
+
+  const THEMES = {
+    midnight: {
+      name: 'Midnight', style: 'soft', meta: '#0c0d11', dead: '#3a3d4e',
+      colors: { I: '#45c4d4', J: '#5672e8', L: '#e8954a', O: '#e9c75a', S: '#62bf78', T: '#9a72e6', Z: '#e25768' },
+    },
+    paper: {
+      name: 'Paper', style: 'flat', meta: '#efece5', dead: '#cfcabf',
+      colors: { I: '#5ea8b2', J: '#4d66b0', L: '#d58a45', O: '#dcb54f', S: '#6ea46f', T: '#8b67b1', Z: '#c95d5d' },
+    },
+    neon: {
+      name: 'Neon', style: 'neon', meta: '#05050a', dead: '#2b2e44',
+      colors: { I: '#00f0ff', J: '#4d7bff', L: '#ff9a1f', O: '#ffe14d', S: '#3dff7a', T: '#c45bff', Z: '#ff3d7f' },
+    },
+    graphite: {
+      name: 'Graphite', style: 'soft', meta: '#111111', dead: '#2c2c2c',
+      colors: { I: '#e8e8e8', J: '#8c8c8c', L: '#bdbdbd', O: '#f6f6f6', S: '#a3a3a3', T: '#d4d4d4', Z: '#747474' },
+    },
+    retro: {
+      name: 'Retro', style: 'retro', meta: '#9bbc0f', dead: '#6b8c0f', board: '#8bac0f',
+      colors: { I: '#0f380f', J: '#306230', L: '#0f380f', O: '#306230', S: '#0f380f', T: '#306230', Z: '#306230' },
+    },
+  };
 
   // ---------- DOM ----------
   const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
   const app = $('#app'), gameEl = $('#game'), boardWrap = $('#board-wrap');
   const boardCv = $('#board'), holdCv = $('#hold'), nextCv = $('#next');
   const bctx = boardCv.getContext('2d'), hctx = holdCv.getContext('2d'), nctx = nextCv.getContext('2d');
-  const overlay = $('#overlay'), popupEl = $('#popup'), pad = $('#pad');
+  const overlay = $('#overlay'), popupEl = $('#popup'), countEl = $('#count'), pad = $('#pad'), toast = $('#toast');
   const coarse = matchMedia('(pointer: coarse)').matches;
   document.documentElement.classList.add(coarse ? 'coarse' : 'fine');
 
@@ -65,19 +96,30 @@
     get(k, d) { try { const v = localStorage.getItem('tetris.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
     set(k, v) { try { localStorage.setItem('tetris.' + k, JSON.stringify(v)); } catch { /* private mode */ } },
   };
-  const settings = Object.assign({ sound: true, ghost: true, haptics: true, pad: false }, store.get('settings', {}));
-  let best = store.get('best', 0);
+  const settings = Object.assign({
+    sound: true, music: false, ghost: true, haptics: true, pad: false, rot180: false,
+    sens: 1, das: 150, arr: 33, startLevel: 1, theme: 'midnight', mode: 'marathon',
+  }, store.get('settings', {}));
+  if (!THEMES[settings.theme]) settings.theme = 'midnight';
+  if (!MODES[settings.mode]) settings.mode = 'marathon';
+  const saveSettings = () => store.set('settings', settings);
+
+  const records = Object.assign({ marathon: [], sprint: [], ultra: [], zen: [] }, store.get('records', {}));
+  // Carry over the best score from the first version.
+  const legacyBest = store.get('best', 0);
+  if (legacyBest && !records.marathon.length) records.marathon.push({ score: legacyBest, lines: 0, time: 0, level: 1, pps: 0, date: Date.now() });
+  const lifetime = Object.assign({ games: 0, lines: 0, pieces: 0, tetrises: 0, tspins: 0, time: 0 }, store.get('lifetime', {}));
 
   // ---------- Audio (tiny synth, no assets) ----------
   let actx = null;
-  function audio() {
-    if (!settings.sound) return null;
+  function ctxAudio() {
     if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } }
     if (actx.state === 'suspended') actx.resume();
     return actx;
   }
   function tone(freq, dur, { type = 'sine', vol = 0.08, at = 0, to = 0 } = {}) {
-    const a = audio(); if (!a) return;
+    if (!settings.sound) return;
+    const a = ctxAudio(); if (!a) return;
     const t = a.currentTime + at;
     const o = a.createOscillator(), g = a.createGain();
     o.type = type;
@@ -102,12 +144,74 @@
     },
     tspin: () => { tone(880, 0.1, { type: 'square', vol: 0.03 }); tone(1175, 0.18, { type: 'triangle', vol: 0.06, at: 0.07 }); },
     level: () => [523, 784, 1047].forEach((f, i) => tone(f, 0.18, { type: 'triangle', vol: 0.07, at: i * 0.09 })),
+    tick: () => tone(660, 0.08, { type: 'sine', vol: 0.06 }),
+    go: () => tone(990, 0.16, { type: 'sine', vol: 0.07 }),
     over: () => [392, 330, 262, 196].forEach((f, i) => tone(f, 0.3, { type: 'triangle', vol: 0.08, at: i * 0.16 })),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, { type: 'triangle', vol: 0.08, at: i * 0.1 })),
   };
   const vibrate = ms => { if (settings.haptics && navigator.vibrate) try { navigator.vibrate(ms); } catch { /* ignore */ } };
 
+  // Generative ambient music: slow pads over Am–F–C–G with a sparse pentatonic pluck.
+  const music = {
+    bus: null, timer: 0, next: 0, step: 0,
+    CHORDS: [[57, 60, 64, 67], [53, 57, 60, 64], [48, 55, 60, 64], [55, 59, 62, 67]],
+    BAR: 4.8,
+    start() {
+      if (this.timer || !settings.music) return;
+      const a = ctxAudio(); if (!a) return;
+      const bus = a.createGain(), lp = a.createBiquadFilter(), dl = a.createDelay(1), fb = a.createGain(), wet = a.createGain();
+      lp.type = 'lowpass'; lp.frequency.value = 1600;
+      dl.delayTime.value = 0.45; fb.gain.value = 0.35; wet.gain.value = 0.3;
+      bus.gain.setValueAtTime(0, a.currentTime);
+      bus.gain.linearRampToValueAtTime(0.9, a.currentTime + 2);
+      bus.connect(lp); lp.connect(a.destination); lp.connect(dl); dl.connect(fb).connect(dl); dl.connect(wet).connect(a.destination);
+      this.bus = bus; this.nodes = [lp, dl, fb, wet];
+      this.next = a.currentTime + 0.1;
+      this.timer = setInterval(() => this.tick(), 250);
+      this.tick();
+    },
+    note(m, t, dur, vol, type, attack) {
+      const a = actx, o = a.createOscillator(), g = a.createGain();
+      o.type = type; o.frequency.value = 440 * Math.pow(2, (m - 69) / 12);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(this.bus);
+      o.start(t); o.stop(t + dur + 0.05);
+    },
+    tick() {
+      const a = actx; if (!a || !this.bus) return;
+      while (this.next < a.currentTime + 1) {
+        const t = this.next, beat = this.step % 8, chord = this.CHORDS[Math.floor(this.step / 8) % 4];
+        if (beat === 0) {
+          chord.slice(0, 3).forEach(m => this.note(m, t, this.BAR + 1.5, 0.018, 'triangle', 1.2));
+          this.note(chord[0] - 12, t, this.BAR, 0.035, 'sine', 0.4);
+        }
+        if (Math.random() < 0.42) {
+          const pent = [0, 3, 5, 7, 10], root = chord[0] + 12;
+          this.note(root + pent[Math.floor(Math.random() * 5)] + (Math.random() < 0.3 ? 12 : 0), t, 1.4, 0.022, 'sine', 0.01);
+        }
+        this.step++;
+        this.next += this.BAR / 8;
+      }
+    },
+    stop() {
+      if (!this.timer) return;
+      clearInterval(this.timer); this.timer = 0;
+      const bus = this.bus, nodes = this.nodes, a = actx;
+      this.bus = null;
+      try {
+        bus.gain.cancelScheduledValues(a.currentTime);
+        bus.gain.setValueAtTime(bus.gain.value, a.currentTime);
+        bus.gain.linearRampToValueAtTime(0, a.currentTime + 0.6);
+      } catch { /* ignore */ }
+      setTimeout(() => { bus.disconnect(); nodes.forEach(n => n.disconnect()); }, 4000);
+    },
+  };
+
   // ---------- Game state ----------
   let board, bag, queue, cur, holdType, holdUsed, score, lines, level, combo, b2b;
+  let mode = settings.mode, M = MODES[mode];
   let state = 'menu';
   let gravityAcc = 0, lockTimer = 0, lockResets = 0, lowestY = 0;
   let lastRotate = false, lastKick = 0;
@@ -116,7 +220,8 @@
   let softDrop = false;
   let dasDir = 0, dasTimer = 0, arrTimer = 0;
   const held = { left: false, right: false };
-  let overAnim = null;
+  let overAnim = null, countT = 0;
+  let elapsed = 0, pieces = 0, tetrises = 0, tspins = 0, dispScore = 0;
 
   const emptyRow = () => new Array(COLS).fill(null);
 
@@ -140,12 +245,15 @@
   const grounded = () => collide(cur.t, cur.r, cur.x, cur.y + 1);
 
   function reset() {
+    mode = settings.mode; M = MODES[mode];
     board = Array.from({ length: H }, emptyRow);
     bag = [];
     queue = [];
     while (queue.length < 5) queue.push(nextType());
-    holdType = null; holdUsed = false;
-    score = 0; lines = 0; level = 1; combo = -1; b2b = false;
+    holdType = null; holdUsed = false; cur = null;
+    score = 0; dispScore = 0; lines = 0; combo = -1; b2b = false;
+    level = M.levels ? settings.startLevel : 1;
+    elapsed = 0; pieces = 0; tetrises = 0; tspins = 0;
     clearing = null; flashes = []; overAnim = null;
     softDrop = false; dasDir = 0; held.left = held.right = false;
     updateHud(true);
@@ -154,11 +262,20 @@
   function spawn(t) {
     if (!t) { t = queue.shift(); queue.push(nextType()); }
     cur = { t, r: 0, x: t === 'O' ? 4 : 3, y: BUF - 2 };
-    if (collide(cur.t, 0, cur.x, cur.y)) return gameOver();
+    if (collide(cur.t, 0, cur.x, cur.y)) {
+      if (!M.zen) return finish('topout');
+      zenClear();
+    }
     if (!collide(cur.t, 0, cur.x, cur.y + 1)) cur.y++;
     gravityAcc = 0; lockTimer = 0; lockResets = 0; lowestY = cur.y;
     lastRotate = false;
     drawSide();
+  }
+
+  function zenClear() {
+    for (let y = 0; y < H; y++) if (board[y].some(Boolean)) flashes.push({ cells: board[y].map((v, x) => [x, y]).filter(([x]) => board[y][x]), t: 0 });
+    board = Array.from({ length: H }, emptyRow);
+    popup('Fresh board', '');
   }
 
   function onMoved() {
@@ -178,12 +295,12 @@
   function rotate(dir) {
     if (!cur || cur.t === 'O') return false;
     const from = cur.r, to = (from + dir + 4) % 4;
-    const kicks = (cur.t === 'I' ? KICKS_I : KICKS)[from + '>' + to];
+    const kicks = dir === 2 ? KICKS_180 : (cur.t === 'I' ? KICKS_I : KICKS)[from + '>' + to];
     for (let i = 0; i < kicks.length; i++) {
       const nx = cur.x + kicks[i][0], ny = cur.y - kicks[i][1];
       if (!collide(cur.t, to, nx, ny)) {
         cur.x = nx; cur.y = ny; cur.r = to;
-        lastRotate = true; lastKick = i;
+        lastRotate = true; lastKick = dir === 2 ? 0 : i;
         if (cur.y > lowestY) { lowestY = cur.y; lockResets = 0; }
         onMoved(); sfx.rotate();
         return true;
@@ -194,7 +311,7 @@
 
   function softStep() {
     if (!cur || grounded()) return false;
-    cur.y++; score++; fell(); updateHud();
+    cur.y++; score++; fell();
     return true;
   }
 
@@ -240,7 +357,11 @@
     flashes.push({ cells, t: 0 });
     cur = null;
     holdUsed = false;
-    if (above) return gameOver();
+    pieces++;
+    if (above) {
+      if (!M.zen) return finish('topout');
+      zenClear(); spawn(); return;
+    }
 
     const full = [];
     for (let y = 0; y < H; y++) if (board[y].every(Boolean)) full.push(y);
@@ -252,6 +373,8 @@
     if (ts === 2) { base = [400, 800, 1200, 1600][n]; title = 'T-Spin' + (n ? ' ' + names[n] : ''); }
     else if (ts === 1) { base = [100, 200, 400][n] || 400; title = 'Mini T-Spin' + (n ? ' ' + names[n] : ''); }
     else { base = [0, 100, 300, 500, 800][n]; title = n === 4 ? 'Tetris' : ''; }
+    if (ts) tspins++;
+    if (n === 4) tetrises++;
     const extras = [];
     if (n) {
       const hard = n === 4 || ts > 0;
@@ -267,13 +390,12 @@
       // Perfect clear: every row empty apart from the ones being cleared.
       const pc = board.every((row, y) => full.includes(y) || row.every(v => !v));
       if (pc) { score += [0, 800, 1200, 1800, 2000][n] * level; title = 'Perfect Clear'; extras.unshift(names[n]); }
-      clearing = { rows: full, t: 0, dur: n === 4 ? 320 : 240 };
+      clearing = { rows: full, t: 0, dur: n === 4 ? 380 : 280, big: n === 4 || pc };
       sfx.clear(n); vibrate(n === 4 ? [20, 40, 30] : 25);
     } else {
       sfx.lock(); vibrate(8);
     }
     if (title || extras.length) popup(title, extras.join(' · '));
-    updateHud();
     if (!n) spawn();
   }
 
@@ -283,31 +405,73 @@
     for (const y of rows) { board.splice(y, 1); board.unshift(emptyRow()); }
     const before = level;
     lines += rows.length;
-    level = 1 + Math.floor(lines / 10);
+    if (M.goal && lines >= M.goal) { lines = Math.min(lines, M.goal); return finish('complete'); }
+    if (M.levels) level = settings.startLevel + Math.floor(lines / 10);
     if (level > before) { sfx.level(); setTimeout(() => popup('Level ' + level, ''), 500); }
-    updateHud();
     spawn();
   }
 
-  function gameOver() {
+  // ---------- Ending, records ----------
+  const fmtTime = (ms, cs = true) => {
+    const s = Math.max(0, ms) / 1000, m = Math.floor(s / 60), r = s - m * 60;
+    return m + ':' + (cs ? r.toFixed(2).padStart(5, '0') : String(Math.floor(r)).padStart(2, '0'));
+  };
+  const pps = () => (elapsed > 0 ? pieces / (elapsed / 1000) : 0);
+  const fmtNum = n => Math.round(n).toLocaleString();
+  const bestOf = m => records[m][0];
+  const recordValue = (m, r) => (MODES[m].rank === 'time' ? fmtTime(r.time) : fmtNum(r.score));
+
+  function finish(reason) {
     cur = null;
+    clearing = null;
     state = 'over';
     softDrop = false; dasDir = 0;
-    sfx.over(); vibrate([40, 60, 40]);
-    const isBest = score > best;
-    if (isBest) { best = score; store.set('best', best); }
-    $('#final-score').textContent = score.toLocaleString();
-    $('#final-detail').innerHTML = `Level <b>${level}</b> · Lines <b>${lines}</b>`;
-    $('#new-best').hidden = !isBest || score === 0;
+    music.stop();
+    countEl.classList.remove('tick');
+    const won = reason === 'complete' || reason === 'time';
+    won ? sfx.win() : sfx.over();
+    vibrate(won ? [20, 40, 20] : [40, 60, 40]);
+
+    Object.assign(lifetime, {
+      games: lifetime.games + 1, lines: lifetime.lines + lines, pieces: lifetime.pieces + pieces,
+      tetrises: lifetime.tetrises + tetrises, tspins: lifetime.tspins + tspins, time: lifetime.time + elapsed,
+    });
+    store.set('lifetime', lifetime);
+
+    const counts = mode === 'sprint' ? reason === 'complete'
+      : mode === 'ultra' ? reason !== 'ended'
+      : score > 0;
+    let rank = 0;
+    if (counts) {
+      const entry = { score, lines, time: Math.round(elapsed), level, pps: +pps().toFixed(2), date: Date.now() };
+      const list = records[mode];
+      list.push(entry);
+      list.sort((a, b) => (M.rank === 'time' ? a.time - b.time : b.score - a.score));
+      list.length = Math.min(list.length, 10);
+      rank = list.indexOf(entry) + 1;
+      store.set('records', records);
+    }
+
+    $('#over-title').textContent = { topout: 'Game over', complete: 'Complete', time: "Time's up", ended: 'Finished' }[reason];
+    $('#final-main').textContent = mode === 'sprint' && reason === 'complete' ? fmtTime(elapsed) : fmtNum(score);
+    const rankEl = $('#final-rank');
+    rankEl.textContent = rank === 1 ? 'New best' : rank ? `#${rank} in your top 10`
+      : mode === 'sprint' && reason !== 'complete' ? `${lines} / ${M.goal} lines` : '';
+    rankEl.classList.toggle('best', rank === 1);
+    const cells = mode === 'sprint'
+      ? [['Lines', lines], ['PPS', pps().toFixed(2)], ['Score', fmtNum(score)]]
+      : [['Lines', lines], [M.levels ? 'Level' : 'Time', M.levels ? level : fmtTime(elapsed, false)], ['PPS', pps().toFixed(2)]];
+    $('#final-grid').innerHTML = cells.map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+
     overAnim = { t: 0 };
     updateHud(true);
-    setTimeout(() => showOverlay('over'), 900);
+    setTimeout(() => { if (state === 'over') showCard('over'); }, reason === 'ended' ? 0 : 900);
   }
 
   // ---------- Loop ----------
   function update(dt) {
-    for (const f of flashes) f.t += dt;
-    flashes = flashes.filter(f => f.t < 160);
+    elapsed += dt;
+    if (M.limit && elapsed >= M.limit) { elapsed = M.limit; return finish('time'); }
 
     if (clearing) {
       clearing.t += dt;
@@ -319,9 +483,12 @@
     // Horizontal auto-repeat (keyboard + pad)
     if (dasDir) {
       dasTimer += dt;
-      if (dasTimer >= DAS) {
-        arrTimer += dt;
-        while (arrTimer >= ARR) { arrTimer -= ARR; if (!move(dasDir)) { arrTimer = 0; break; } }
+      if (dasTimer >= settings.das) {
+        if (settings.arr <= 0) { while (move(dasDir)); }
+        else {
+          arrTimer += dt;
+          while (arrTimer >= settings.arr) { arrTimer -= settings.arr; if (!move(dasDir)) { arrTimer = 0; break; } }
+        }
       }
     }
     if (!cur) return;
@@ -331,7 +498,7 @@
     if (grounded()) {
       gravityAcc = 0;
       lockTimer += dt;
-      if (lockTimer >= LOCK_DELAY || lockResets >= MAX_RESETS && lockTimer >= LOCK_DELAY / 5) lock();
+      if (lockTimer >= LOCK_DELAY || (lockResets >= MAX_RESETS && lockTimer >= LOCK_DELAY / 5)) lock();
     } else {
       gravityAcc += dt;
       while (gravityAcc >= interval && !grounded()) {
@@ -340,7 +507,6 @@
         if (softDrop) score++;
         fell();
       }
-      if (softDrop) updateHud();
     }
   }
 
@@ -349,6 +515,20 @@
     const dt = Math.min(now - last, 100);
     last = now;
     if (state === 'play') update(dt);
+    else if (state === 'count') {
+      const before = Math.ceil(countT / 1000);
+      countT -= dt;
+      const after = Math.ceil(countT / 1000);
+      if (countT <= 0) { state = 'play'; countEl.textContent = ''; sfx.go(); music.start(); }
+      else if (after !== before) showCount(after);
+    }
+    for (const f of flashes) f.t += dt;
+    if (flashes.length) flashes = flashes.filter(f => f.t < 220);
+    if (dispScore !== score) {
+      dispScore = score < dispScore ? score : dispScore + Math.max(1, Math.round((score - dispScore) * (1 - Math.exp(-dt / 90))));
+      if (dispScore > score) dispScore = score;
+    }
+    updateHud();
     if (state === 'play' || overAnim || flashes.length) {
       if (overAnim) overAnim.t += dt;
       drawBoard();
@@ -358,13 +538,15 @@
   }
 
   // ---------- Rendering ----------
-  let c = 30, dpr = 1, sprites = {}, bgCanvas = null, mode = 'side';
+  let c = 30, dpr = 1, sprites = {}, bgCanvas = null, layoutMode = 'side';
+  let theme = THEMES[settings.theme];
   const hexToRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const mix = (hex, amt) => {
     const [r, g, b] = hexToRgb(hex), t = amt > 0 ? 255 : 0, a = Math.abs(amt);
     return `rgb(${Math.round(r + (t - r) * a)},${Math.round(g + (t - g) * a)},${Math.round(b + (t - b) * a)})`;
   };
   const rgba = (hex, a) => { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
   function rr(ctx, x, y, w, h, r) {
     r = Math.min(r, w / 2, h / 2);
@@ -377,9 +559,38 @@
     ctx.closePath();
   }
 
-  function drawBlock(ctx, x, y, s, color) {
+  function drawBlock(ctx, x, y, s, color, style = theme.style) {
+    if (style === 'neon') {
+      const gap = s * 0.14, w = s - 2 * gap, lw = Math.max(1, s * 0.07);
+      ctx.save();
+      ctx.shadowColor = color; ctx.shadowBlur = s * 0.35;
+      ctx.fillStyle = rgba(color, 0.18);
+      rr(ctx, x + gap, y + gap, w, w, s * 0.1); ctx.fill();
+      ctx.strokeStyle = color; ctx.lineWidth = lw;
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = rgba(color, 0.5);
+      rr(ctx, x + s * 0.36, y + s * 0.36, s * 0.28, s * 0.28, s * 0.05); ctx.fill();
+      return;
+    }
+    if (style === 'retro') {
+      const gap = Math.max(1, Math.round(s * 0.05)), w = s - gap;
+      ctx.fillStyle = color; ctx.fillRect(x + gap / 2, y + gap / 2, w, w);
+      const i1 = s * 0.2, i2 = s * 0.33;
+      ctx.fillStyle = theme.board; ctx.fillRect(x + i1, y + i1, s - 2 * i1, s - 2 * i1);
+      ctx.fillStyle = color; ctx.fillRect(x + i2, y + i2, s - 2 * i2, s - 2 * i2);
+      return;
+    }
     const gap = Math.max(1, s * 0.06), w = s - gap, x0 = x + gap / 2, y0 = y + gap / 2;
-    const r = Math.min(3, s * 0.08), edge = Math.max(1, s * 0.07);
+    const r = Math.min(3, s * 0.08);
+    if (style === 'flat') {
+      ctx.fillStyle = color;
+      rr(ctx, x0, y0, w, w, r); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fillRect(x0 + r / 2, y0 + w - Math.max(1, s * 0.06), w - r, Math.max(1, s * 0.06));
+      return;
+    }
+    const edge = Math.max(1, s * 0.07);
     const g = ctx.createLinearGradient(x, y, x, y + s);
     g.addColorStop(0, mix(color, 0.1));
     g.addColorStop(1, mix(color, -0.12));
@@ -400,15 +611,15 @@
     for (const t of [...TYPES, 'X']) {
       const cv = document.createElement('canvas');
       cv.width = cv.height = px;
-      const ctx = cv.getContext('2d');
-      drawBlock(ctx, 0, 0, px, t === 'X' ? '#3a3d4e' : COLORS[t]);
+      drawBlock(cv.getContext('2d'), 0, 0, px, t === 'X' ? theme.dead : theme.colors[t]);
       sprites[t] = cv;
     }
     bgCanvas = document.createElement('canvas');
     bgCanvas.width = Math.round(COLS * c * dpr); bgCanvas.height = Math.round(ROWS * c * dpr);
     const g = bgCanvas.getContext('2d');
     g.scale(dpr, dpr);
-    g.strokeStyle = 'rgba(255,255,255,0.045)';
+    g.strokeStyle = cssVar('--board-line') || 'rgba(255,255,255,0.1)';
+    g.globalAlpha = 0.45;
     g.lineWidth = 1 / dpr;
     g.beginPath();
     for (let x = 1; x < COLS; x++) { g.moveTo(x * c, 0); g.lineTo(x * c, ROWS * c); }
@@ -434,43 +645,57 @@
     ctx.drawImage(bgCanvas, 0, 0, W, Hh);
 
     const overRows = overAnim ? Math.min(ROWS, Math.floor(overAnim.t / 40)) : -1;
-    const clearP = clearing ? clearing.t / clearing.dur : 0;
+    const clearP = clearing ? Math.min(1, clearing.t / clearing.dur) : 0;
+    const ease = 1 - Math.pow(1 - clearP, 3);
     let highest = H;
 
     for (let y = BUF; y < H; y++) {
       const isClearing = clearing && clearing.rows.includes(y);
+      const py = (y - BUF) * c;
+      if (isClearing) {
+        // Cells shrink into a line while a light sweeps across the row.
+        const sh = c * (1 - ease);
+        ctx.globalAlpha = 1 - ease * 0.6;
+        for (let x = 0; x < COLS; x++) if (board[y][x]) ctx.drawImage(sprites[board[y][x]], x * c, py + (c - sh) / 2, c, sh);
+        ctx.globalAlpha = 1;
+        const band = W * 0.5, sx = -band + (W + band) * ease;
+        const g = ctx.createLinearGradient(sx, 0, sx + band, 0);
+        const glow = theme.style === 'retro' ? '15,56,15' : theme.style === 'flat' ? '255,255,255' : '255,255,255';
+        g.addColorStop(0, `rgba(${glow},0)`);
+        g.addColorStop(0.7, `rgba(${glow},${0.55 * (1 - clearP * 0.5)})`);
+        g.addColorStop(1, `rgba(${glow},0)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, py, W, c);
+        continue;
+      }
       for (let x = 0; x < COLS; x++) {
         const v = board[y][x];
         if (!v) continue;
         if (y < highest) highest = y;
-        if (isClearing) {
-          // Wipe from the center outward.
-          if (Math.abs(x - 4.5) < clearP * 6) continue;
-        }
         const grey = overAnim && H - 1 - y < overRows;
-        ctx.drawImage(sprites[grey ? 'X' : v], x * c, (y - BUF) * c, c, c);
-      }
-      if (isClearing) {
-        ctx.fillStyle = `rgba(255,255,255,${0.35 * (1 - clearP)})`;
-        ctx.fillRect(0, (y - BUF) * c, W, c);
+        ctx.drawImage(sprites[grey ? 'X' : v], x * c, py, c, c);
       }
     }
-    boardWrap.classList.toggle('danger', state === 'play' && highest - BUF < 4);
+    if (clearing && clearing.big) {
+      ctx.fillStyle = `rgba(255,255,255,${0.12 * (1 - clearP)})`;
+      ctx.fillRect(0, 0, W, Hh);
+    }
+    boardWrap.classList.toggle('danger', (state === 'play' || state === 'count') && !M.zen && highest - BUF < 4);
 
     if (cur) {
       const cells = CELLS[cur.t][cur.r];
       if (settings.ghost) {
-        const gy = ghostY(), col = COLORS[cur.t];
+        const gy = ghostY(), col = theme.colors[cur.t];
         if (gy !== cur.y) {
           ctx.lineWidth = Math.max(1, Math.round(c * 0.05));
-          ctx.strokeStyle = rgba(col, 0.5);
+          ctx.strokeStyle = rgba(col, theme.style === 'retro' ? 0.6 : 0.5);
           ctx.fillStyle = rgba(col, 0.07);
           const lw = ctx.lineWidth;
           for (const [cx, cy] of cells) {
             const yy = gy + cy - BUF; if (yy < 0) continue;
-            const px = (cur.x + cx) * c, py = yy * c, pad = c * 0.03 + lw / 2;
-            ctx.fillRect(px + pad, py + pad, c - 2 * pad, c - 2 * pad);
-            ctx.strokeRect(px + pad, py + pad, c - 2 * pad, c - 2 * pad);
+            const px = (cur.x + cx) * c, py = yy * c, p = c * 0.03 + lw / 2;
+            ctx.fillRect(px + p, py + p, c - 2 * p, c - 2 * p);
+            ctx.strokeRect(px + p, py + p, c - 2 * p, c - 2 * p);
           }
         }
       }
@@ -484,8 +709,9 @@
       ctx.globalAlpha = 1;
     }
 
+    const flashCol = theme.style === 'retro' ? '155,188,15' : '255,255,255';
     for (const f of flashes) {
-      ctx.fillStyle = `rgba(255,255,255,${0.5 * (1 - f.t / 160)})`;
+      ctx.fillStyle = `rgba(${flashCol},${0.5 * (1 - f.t / 220)})`;
       for (const [x, y] of f.cells) {
         if (y < BUF) continue;
         ctx.fillRect(x * c + c * 0.03, (y - BUF) * c + c * 0.03, c * 0.94, c * 0.94);
@@ -498,7 +724,7 @@
     const xs = cells.map(p => p[0]), ys = cells.map(p => p[1]);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
     const ox = cx - ((maxX - minX + 1) * s) / 2, oy = cy - ((maxY - minY + 1) * s) / 2;
-    for (const [x, y] of cells) drawBlock(ctx, ox + (x - minX) * s, oy + (y - minY) * s, s, dim ? '#3a3d4e' : COLORS[t]);
+    for (const [x, y] of cells) drawBlock(ctx, ox + (x - minX) * s, oy + (y - minY) * s, s, dim ? theme.dead : theme.colors[t]);
   }
 
   let holdDims, nextDims;
@@ -514,17 +740,25 @@
   }
 
   // ---------- HUD ----------
-  const scoreEl = $('#score'), levelEl = $('#level'), linesEl = $('#lines'), bestEl = $('#best');
-  let hudCache = '';
+  const statEls = [...$$('#stats .stat')].map(el => [el.querySelector('.k'), el.querySelector('.v')]);
+  const hudCache = [];
+  function hudStats() {
+    const b = bestOf(mode);
+    switch (mode) {
+      case 'sprint': return [['Time', fmtTime(elapsed)], ['Lines', `${lines}/${M.goal}`], ['PPS', pps().toFixed(2)], ['Best', b ? fmtTime(b.time) : '–']];
+      case 'ultra': return [['Score', fmtNum(dispScore)], ['Time', fmtTime(M.limit - elapsed, false)], ['Lines', lines], ['Best', b ? fmtNum(b.score) : '–']];
+      case 'zen': return [['Score', fmtNum(dispScore)], ['Lines', lines], ['PPS', pps().toFixed(2)], ['Time', fmtTime(elapsed, false)]];
+      default: return [['Score', fmtNum(dispScore)], ['Level', level], ['Lines', lines], ['Best', fmtNum(Math.max(b ? b.score : 0, score))]];
+    }
+  }
   function updateHud(force) {
-    const key = score + '|' + level + '|' + lines + '|' + best;
-    if (!force && key === hudCache) return;
-    hudCache = key;
-    scoreEl.textContent = score.toLocaleString();
-    levelEl.textContent = level;
-    linesEl.textContent = lines;
-    bestEl.textContent = Math.max(best, score).toLocaleString();
-    document.querySelectorAll('.best-val').forEach(e => { e.textContent = best.toLocaleString(); });
+    hudStats().forEach(([k, v], i) => {
+      const key = k + '|' + v;
+      if (!force && hudCache[i] === key) return;
+      hudCache[i] = key;
+      statEls[i][0].textContent = k;
+      statEls[i][1].textContent = v;
+    });
   }
 
   let popupTimer = 0;
@@ -534,29 +768,34 @@
     clearTimeout(popupTimer);
     popupTimer = setTimeout(() => popupEl.classList.remove('go'), 1200);
   }
+  function showCount(n) {
+    countEl.textContent = n;
+    countEl.classList.remove('tick'); void countEl.offsetWidth; countEl.classList.add('tick');
+    sfx.tick();
+  }
 
   // ---------- Layout ----------
   function layout() {
     const cs = getComputedStyle(app);
     const W = app.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     let Hh = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-    const showPad = settings.pad;
-    pad.hidden = !showPad;
-    if (showPad) {
+    pad.hidden = !settings.pad;
+    pad.querySelector('[data-pad="r180"]').hidden = !settings.rot180;
+    if (settings.pad) {
       const ph = Math.round(Math.max(52, Math.min(76, Hh * 0.085)));
       app.style.setProperty('--pad-h', ph + 'px');
       Hh -= ph + 12;
     }
     const cSide = Math.floor(Math.min(W / 20.2, (Hh - 2) / 20));
     const cTop = Math.floor(Math.min((W - 2) / 10, (Hh - 2) / 23.9));
-    mode = cSide >= cTop ? 'side' : 'top';
-    c = Math.max(10, mode === 'side' ? cSide : cTop);
+    layoutMode = cSide >= cTop ? 'side' : 'top';
+    c = Math.max(10, layoutMode === 'side' ? cSide : cTop);
     dpr = Math.min(window.devicePixelRatio || 1, 3);
     document.documentElement.style.setProperty('--c', c + 'px');
-    gameEl.className = mode;
+    gameEl.className = layoutMode;
 
     setCanvas(boardCv, bctx, COLS * c, ROWS * c);
-    if (mode === 'side') {
+    if (layoutMode === 'side') {
       const w = Math.round(c * 3.8), s1 = Math.round(c * 0.8), s2 = Math.round(c * 0.62);
       holdDims = [w, Math.round(c * 2.2), s1];
       const slots = [{ x: w / 2, y: c * 1.1, s: s1 }];
@@ -577,88 +816,198 @@
     drawSide();
   }
 
-  // ---------- Overlay & settings ----------
-  function showOverlay(name) {
-    document.querySelectorAll('.card').forEach(el => el.classList.toggle('show', el.id === name));
+  function applyTheme() {
+    theme = THEMES[settings.theme];
+    document.documentElement.dataset.theme = settings.theme;
+    $('meta[name="theme-color"]').setAttribute('content', theme.meta);
+    if (!theme.board) theme.board = cssVar('--board');
+    makeSprites();
+    drawBoard();
+    drawSide();
+  }
+
+  // ---------- Cards ----------
+  let cardStack = [];
+  function showCard(name, push = false) {
+    if (push) cardStack.push(currentCard());
+    else cardStack = [];
+    $$('.card').forEach(el => el.classList.toggle('show', el.id === name));
     overlay.classList.toggle('show', !!name);
-    if (name) {
-      const btn = document.querySelector(`#${name} .btn.primary`);
-      if (btn && !coarse) btn.focus({ preventScroll: true });
+    overlay.scrollTop = 0;
+    if (name === 'menu') renderMenu();
+    if (name === 'records') renderRecords();
+    if (name === 'settings') renderSettings();
+    toast.classList.toggle('show', !!(name && waitingWorker));
+    if (name && !coarse) {
+      const btn = $(`#${name} .btn.primary`) || $(`#${name} .btn`);
+      if (btn) btn.focus({ preventScroll: true });
+    }
+  }
+  const currentCard = () => { const el = $('.card.show'); return el ? el.id : null; };
+  function back() {
+    const prev = cardStack.pop() || (state === 'pause' ? 'paused' : 'menu'), rest = cardStack;
+    showCard(prev);
+    cardStack = rest;
+  }
+
+  function seg(container, items, selected, onPick) {
+    container.innerHTML = '';
+    for (const [key, label] of items) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.className = key === selected ? 'on' : '';
+      b.setAttribute('role', 'tab');
+      b.addEventListener('click', () => onPick(key));
+      container.appendChild(b);
+    }
+  }
+  const modeItems = Object.entries(MODES).map(([k, v]) => [k, v.name]);
+
+  function renderMenu() {
+    seg($('#modes'), modeItems, settings.mode, k => { settings.mode = k; saveSettings(); renderMenu(); reset(); drawBoard(); drawSide(); });
+    $('#mode-desc').textContent = MODES[settings.mode].desc;
+    const b = bestOf(settings.mode);
+    $('#mode-best').innerHTML = b ? `Best <b>${recordValue(settings.mode, b)}</b>` : '';
+  }
+
+  let recMode = null;
+  function renderRecords() {
+    recMode = recMode || settings.mode;
+    seg($('#rec-modes'), modeItems, recMode, k => { recMode = k; renderRecords(); });
+    const list = records[recMode];
+    const fmtDate = d => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    $('#toplist').innerHTML = list.length
+      ? list.map((r, i) => {
+        const meta = MODES[recMode].rank === 'time'
+          ? `${r.pps} PPS · ${fmtDate(r.date)}`
+          : `${r.lines} lines${MODES[recMode].levels ? ' · L' + r.level : ''} · ${fmtDate(r.date)}`;
+        return `<li><span class="n">${i + 1}</span><span class="val">${recordValue(recMode, r)}</span><span class="meta">${meta}</span></li>`;
+      }).join('')
+      : `<li class="empty">No ${MODES[recMode].name} records yet</li>`;
+    const hrs = lifetime.time / 3600000;
+    const cells = [
+      ['Games', fmtNum(lifetime.games)], ['Lines', fmtNum(lifetime.lines)], ['Pieces', fmtNum(lifetime.pieces)],
+      ['Tetrises', fmtNum(lifetime.tetrises)], ['T-Spins', fmtNum(lifetime.tspins)],
+      ['Played', hrs >= 1 ? hrs.toFixed(1) + ' h' : Math.round(lifetime.time / 60000) + ' min'],
+    ];
+    $('#lifetime').innerHTML = cells.map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+  }
+
+  // ---------- Settings ----------
+  const SETTINGS = {
+    game: [
+      ['ghost', 'Ghost piece'],
+      ['startLevel', 'Starting level', { min: 1, max: 15, step: 1, fmt: v => v, note: 'Marathon and Ultra' }],
+    ],
+    controls: [
+      ['sens', 'Touch sensitivity', { min: 0.5, max: 2, step: 0.1, fmt: v => Math.round(v * 100) + '%' }],
+      ['das', 'Repeat delay (DAS)', { min: 50, max: 300, step: 5, fmt: v => v + ' ms' }],
+      ['arr', 'Repeat rate (ARR)', { min: 0, max: 100, step: 1, fmt: v => (v ? v + ' ms' : 'Instant') }],
+      ['rot180', '180° rotation', null, 'Two-finger tap, or A key'],
+      ['pad', 'On-screen buttons'],
+    ],
+    sound: [
+      ['sound', 'Sound effects'],
+      ['music', 'Ambient music'],
+      ['haptics', 'Vibration', null, null, () => 'vibrate' in navigator],
+    ],
+  };
+  function renderSettings() {
+    const tbox = $('#themes');
+    tbox.innerHTML = '';
+    for (const [key, t] of Object.entries(THEMES)) {
+      const b = document.createElement('button');
+      b.className = 'theme' + (key === settings.theme ? ' on' : '');
+      const bg = t.board || t.meta;
+      b.innerHTML = `<i style="background:${bg}">${['T', 'I', 'Z'].map(p => `<b style="background:${t.colors[p]}"></b>`).join('')}</i>${t.name}`;
+      b.addEventListener('click', () => { settings.theme = key; saveSettings(); applyTheme(); renderSettings(); });
+      tbox.appendChild(b);
+    }
+    for (const [group, items] of Object.entries(SETTINGS)) {
+      const box = $('#set-' + group);
+      box.innerHTML = '';
+      for (const [key, label, range, note, avail] of items) {
+        if (avail && !avail()) continue;
+        if (range) {
+          const l = document.createElement('label');
+          l.className = 'range';
+          l.innerHTML = `<span>${label}${range.note ? `<small>${range.note}</small>` : ''}</span><output></output>
+            <input type="range" min="${range.min}" max="${range.max}" step="${range.step}" value="${settings[key]}">`;
+          const out = l.querySelector('output'), inp = l.querySelector('input');
+          out.textContent = range.fmt(settings[key]);
+          inp.addEventListener('input', () => { settings[key] = +inp.value; out.textContent = range.fmt(+inp.value); saveSettings(); });
+          box.appendChild(l);
+        } else {
+          const l = document.createElement('label');
+          l.className = 'row';
+          l.innerHTML = `<span>${label}${note ? `<small>${note}</small>` : ''}</span><input type="checkbox"${settings[key] ? ' checked' : ''}><span class="sw"></span>`;
+          l.querySelector('input').addEventListener('change', e => {
+            settings[key] = e.target.checked; saveSettings();
+            if (key === 'pad' || key === 'rot180') layout();
+            if (key === 'sound' && settings.sound) sfx.rotate();
+            if (key === 'ghost') drawBoard();
+          });
+          box.appendChild(l);
+        }
+      }
     }
   }
 
-  const TOGGLES = [
-    ['sound', 'Sound'],
-    ['ghost', 'Ghost piece'],
-    ['haptics', 'Vibration', () => 'vibrate' in navigator],
-    ['pad', 'On-screen buttons'],
-  ];
-  function buildSettings() {
-    document.querySelectorAll('.settings').forEach(box => {
-      box.innerHTML = '';
-      for (const [key, label, avail] of TOGGLES) {
-        if (avail && !avail()) continue;
-        const l = document.createElement('label');
-        l.className = 'toggle';
-        l.innerHTML = `<span>${label}</span><input type="checkbox" data-set="${key}"><span class="sw"></span>`;
-        box.appendChild(l);
-      }
-    });
-    syncSettings();
-  }
-  function syncSettings() {
-    document.querySelectorAll('[data-set]').forEach(i => { i.checked = !!settings[i.dataset.set]; });
-  }
-  overlay.addEventListener('change', e => {
-    const k = e.target.dataset && e.target.dataset.set;
-    if (!k) return;
-    settings[k] = e.target.checked;
-    store.set('settings', settings);
-    syncSettings();
-    if (k === 'pad') layout();
-    if (k === 'sound' && settings.sound) sfx.rotate();
-  });
-
+  // ---------- Flow ----------
   function start() {
-    audio();
+    ctxAudio();
+    music.stop();
     reset();
     state = 'play';
-    showOverlay(null);
+    showCard(null);
     last = performance.now();
     spawn();
+    music.start();
   }
   function pause() {
-    if (state !== 'play') return;
+    if (state !== 'play' && state !== 'count') return;
     state = 'pause';
-    softDrop = false; dasDir = 0; held.left = held.right = false;
-    showOverlay('paused');
+    softDrop = false; dasDir = 0; held.left = held.right = false; gest = null;
+    countEl.classList.remove('tick'); countEl.textContent = '';
+    music.stop();
+    showCard('paused');
   }
   function resume() {
     if (state !== 'pause') return;
-    state = 'play';
+    showCard(null);
+    state = 'count';
+    countT = 3000;
     last = performance.now();
-    showOverlay(null);
+    showCount(3);
   }
   function toMenu() {
     state = 'menu';
-    updateHud(true);
-    showOverlay('menu');
+    music.stop();
+    reset();
+    drawBoard(); drawSide();
+    showCard('menu');
   }
+  function endGame() { if (state === 'pause') finish('ended'); }
 
   overlay.addEventListener('click', e => {
     const b = e.target.closest('[data-act]');
     if (!b) return;
-    ({ start, resume, restart: start, menu: toMenu })[b.dataset.act]();
+    const acts = {
+      start, resume, restart: start, menu: toMenu, end: endGame, back,
+      settings: () => showCard('settings', true),
+      records: () => { recMode = state === 'over' ? mode : settings.mode; showCard('records', true); },
+      help: () => showCard('help', true),
+    };
+    acts[b.dataset.act]();
   });
   $('#pause').addEventListener('click', pause);
 
   // ---------- Keyboard ----------
   const KEYMAP = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down',
-    ArrowUp: 'cw', KeyX: 'cw', KeyW: 'cw',
-    KeyZ: 'ccw', ControlLeft: 'ccw', ControlRight: 'ccw',
+    ArrowUp: 'cw', KeyX: 'cw', KeyZ: 'ccw', ControlLeft: 'ccw', ControlRight: 'ccw', KeyA: 'r180',
     Space: 'drop', KeyC: 'hold', ShiftLeft: 'hold', ShiftRight: 'hold',
-    Escape: 'pause', KeyP: 'pause', KeyA: 'left', KeyD: 'right', KeyS: 'down',
+    Escape: 'pause', KeyP: 'pause',
   };
 
   function press(act) {
@@ -674,6 +1023,7 @@
       case 'down': softDrop = true; softStep(); break;
       case 'cw': rotate(1); break;
       case 'ccw': rotate(-1); break;
+      case 'r180': rotate(2); break;
       case 'drop': hardDrop(); break;
       case 'hold': hold(); break;
       case 'pause': pause(); break;
@@ -691,13 +1041,16 @@
   document.addEventListener('keydown', e => {
     const act = KEYMAP[e.code];
     if (state === 'menu' || state === 'over') {
-      if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); start(); }
+      if ((e.code === 'Enter' || e.code === 'Space') && ['menu', 'over'].includes(currentCard()) && !e.target.closest('button,input')) { e.preventDefault(); start(); }
+      if (e.code === 'Escape' && cardStack.length) back();
       return;
     }
     if (state === 'pause') {
-      if (act === 'pause' || e.code === 'Enter') { e.preventDefault(); resume(); }
+      if (e.code === 'Escape' && cardStack.length) { back(); return; }
+      if ((act === 'pause' || e.code === 'Enter') && currentCard() === 'paused' && !e.target.closest('button,input')) { e.preventDefault(); resume(); }
       return;
     }
+    if (state === 'count') { if (act === 'pause') pause(); return; }
     if (!act) return;
     e.preventDefault();
     if (e.repeat) return;
@@ -714,28 +1067,32 @@
 
   app.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' || state !== 'play') return;
-    if (e.target.closest('button, #pad, #overlay')) return;
-    if (gest) return; // single-finger gestures only
-    audio();
+    if (e.target.closest('button, #pad, #overlay, #toast')) return;
+    ctxAudio();
+    if (gest) {
+      // A second finger landing quickly turns the gesture into a two-finger tap.
+      if (!gest.moved && e.timeStamp - gest.t0 < 250) gest.two = true;
+      return;
+    }
     gest = {
       id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp,
-      ax: e.clientX, ay: e.clientY, axis: null, moved: false, done: false,
+      ax: e.clientX, ay: e.clientY, axis: null, moved: false, two: false,
       hist: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }],
     };
   });
 
   app.addEventListener('pointermove', e => {
-    if (!gest || e.pointerId !== gest.id || gest.done || state !== 'play') return;
+    if (!gest || e.pointerId !== gest.id || gest.two || state !== 'play') return;
     const g = gest, x = e.clientX, y = e.clientY;
     g.hist.push({ x, y, t: e.timeStamp });
     while (g.hist.length > 2 && e.timeStamp - g.hist[0].t > 100) g.hist.shift();
-    const step = Math.max(14, c * 0.9);
+    const step = Math.max(10, (c * 0.9) / settings.sens);
     const tx = x - g.x0, ty = y - g.y0;
     if (!g.axis && Math.hypot(tx, ty) > TAP_PX) g.axis = Math.abs(tx) > Math.abs(ty) ? 'x' : 'y';
     if (!g.axis) return;
     // Allow switching axis once the other direction clearly dominates.
     if (g.axis === 'x' && y - g.ay > step * 1.6 && Math.abs(y - g.ay) > Math.abs(x - g.ax) * 1.5) g.axis = 'y';
-    if (g.axis === 'y' && Math.abs(x - g.ax) > step * 1.2 && Math.abs(x - g.ax) > Math.abs(y - g.ay)) { g.axis = 'x'; }
+    if (g.axis === 'y' && Math.abs(x - g.ax) > step * 1.2 && Math.abs(x - g.ax) > Math.abs(y - g.ay)) g.axis = 'x';
 
     if (g.axis === 'x') {
       let dx = x - g.ax;
@@ -755,14 +1112,13 @@
   function endGesture(e) {
     if (!gest || e.pointerId !== gest.id) return;
     const g = gest; gest = null;
-    if (g.done || state !== 'play') return;
+    if (state !== 'play' || e.type === 'pointercancel') return;
     const dt = e.timeStamp - g.t0;
     const tx = e.clientX - g.x0, ty = e.clientY - g.y0;
+    if (g.two) { if (settings.rot180 && !g.moved) rotate(2); return; }
     const h0 = g.hist[0];
     const span = Math.max(1, e.timeStamp - h0.t);
     const vy = (e.clientY - h0.y) / span, vx = (e.clientX - h0.x) / span;
-
-    if (e.type === 'pointercancel') return;
     if (vy > 0.9 && ty > 40 && Math.abs(vy) > Math.abs(vx) * 1.4) { hardDrop(); return; }
     if (vy < -0.6 && ty < -40 && Math.abs(vy) > Math.abs(vx)) { hold(); return; }
     if (!g.moved && dt < TAP_MS + 150 && Math.hypot(tx, ty) < TAP_PX * 1.6) {
@@ -777,7 +1133,7 @@
     const b = e.target.closest('[data-pad]');
     if (!b) return;
     e.preventDefault();
-    audio();
+    ctxAudio();
     b.classList.add('on');
     try { b.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     press(b.dataset.pad);
@@ -806,17 +1162,40 @@
   window.addEventListener('orientationchange', () => setTimeout(layout, 250));
   if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
 
-  // ---------- Boot ----------
-  reset();
-  buildSettings();
-  layout();
-  showOverlay('menu');
-  requestAnimationFrame(frame);
-
+  // ---------- Updates ----------
+  let waitingWorker = null, refreshing = false;
+  function offerUpdate(w) {
+    if (!w || !navigator.serviceWorker.controller) return;
+    waitingWorker = w;
+    if (state !== 'play' && state !== 'count') toast.classList.add('show');
+  }
+  $('#toast-btn').addEventListener('click', () => { if (waitingWorker) { refreshing = true; waitingWorker.postMessage('skip'); } });
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    // Only reload when the player asked for the update (not on the first install's claim).
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (refreshing) { refreshing = false; location.reload(); } });
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        if (reg.waiting) offerUpdate(reg.waiting);
+        reg.addEventListener('updatefound', () => {
+          const w = reg.installing;
+          w.addEventListener('statechange', () => { if (w.state === 'installed') offerUpdate(w); });
+        });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+      }).catch(() => {});
+    });
   }
 
+  // ---------- Boot ----------
+  reset();
+  layout();
+  applyTheme();
+  showCard('menu');
+  requestAnimationFrame(frame);
+
   // Exposed for automated tests only.
-  window.__tetris = { get state() { return state; }, get cur() { return cur; }, get board() { return board; }, get score() { return score; }, press, release, start };
+  window.__tetris = {
+    get state() { return state; }, get cur() { return cur; }, get board() { return board; }, get score() { return score; },
+    get lines() { return lines; }, get elapsed() { return elapsed; }, set elapsed(v) { elapsed = v; },
+    get records() { return records; }, settings, press, release, start, pause, resume, rotate, finish,
+  };
 })();
