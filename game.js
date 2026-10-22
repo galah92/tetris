@@ -69,6 +69,30 @@
       name: 'Paper', style: 'flat', meta: '#efece5', board: '#faf8f3', dead: '#cfcabf', flash: '60,50,30',
       colors: { I: '#5ea8b2', J: '#4d66b0', L: '#d58a45', O: '#dcb54f', S: '#6ea46f', T: '#8b67b1', Z: '#c95d5d' },
     },
+    nord: {
+      name: 'Nord', style: 'calm', meta: '#2e3440', board: '#282d37', dead: '#4c566a', flash: '236,239,244', grid: 0.35,
+      colors: { I: '#88c0d0', J: '#5e81ac', L: '#d08770', O: '#ebcb8b', S: '#a3be8c', T: '#b48ead', Z: '#bf616a' },
+    },
+    dusk: {
+      name: 'Dusk', style: 'calm', meta: '#1f1d24', board: '#1a1820', dead: '#3d3a46', flash: '216,210,224', grid: 0.3,
+      colors: { I: '#7fb5b5', J: '#8a95c9', L: '#d1a07a', O: '#d9c48c', S: '#93b98a', T: '#b39ccf', Z: '#cf8f96' },
+    },
+    candle: {
+      name: 'Candlelight', style: 'calm', meta: '#1c1612', board: '#17120e', dead: '#3e3229', flash: '232,213,191', grid: 0.3,
+      colors: { I: '#d9b48a', J: '#a8826a', L: '#e09a5f', O: '#e8c47a', S: '#b8a070', T: '#c7866a', Z: '#b56a5a' },
+    },
+    mist: {
+      name: 'Mist', style: 'calm', meta: '#e9edf2', board: '#f5f7fa', dead: '#d0d7e0', flash: '52,64,79', grid: 0.35,
+      colors: { I: '#8ec5d6', J: '#8ea4d6', L: '#e3b18e', O: '#e8d28e', S: '#9fcfa8', T: '#bba6dc', Z: '#e3a1a8' },
+    },
+    sage: {
+      name: 'Sage', style: 'calm', meta: '#e6ebe3', board: '#f1f4ef', dead: '#c9d1c5', flash: '61,74,63', grid: 0.35,
+      colors: { I: '#7fa7a3', J: '#7186a6', L: '#c9a07a', O: '#d6c17f', S: '#8fae86', T: '#a08cb0', Z: '#c48a86' },
+    },
+    solarized: {
+      name: 'Solarized', style: 'calm', meta: '#eee8d5', board: '#fdf6e3', dead: '#d9d2bf', flash: '88,110,117', grid: 0.35,
+      colors: { I: '#2aa198', J: '#268bd2', L: '#cb4b16', O: '#b58900', S: '#859900', T: '#6c71c4', Z: '#dc322f' },
+    },
     aurora: {
       name: 'Aurora', style: 'glass', meta: '#0a0f1f', board: '#101a30', dead: '#4a5878', flash: '255,255,255',
       colors: { I: '#7ff3e8', J: '#8fb2ff', L: '#ffc08a', O: '#fff08f', S: '#9ef7a8', T: '#d7a6ff', Z: '#ff9ec4' },
@@ -624,6 +648,12 @@
         const i1 = s * 0.2, i2 = s * 0.33;
         ctx.fillStyle = th.board; ctx.fillRect(x + i1, y + i1, s - 2 * i1, s - 2 * i1);
         ctx.fillStyle = color; ctx.fillRect(x + i2, y + i2, s - 2 * i2, s - 2 * i2);
+        break;
+      }
+      case 'calm': {
+        const gap = Math.max(1, s * 0.08), w = s - gap;
+        ctx.fillStyle = color;
+        rr(ctx, x + gap / 2, y + gap / 2, w, w, s * 0.14); ctx.fill();
         break;
       }
       case 'flat': {
