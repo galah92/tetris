@@ -8,7 +8,12 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))));
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE);
+    await c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })));
+    // The first release ('tetris-v1') had no refresh prompt, so take over from it right away.
+    if (await caches.has('tetris-v1')) await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', e => {
