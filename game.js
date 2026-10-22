@@ -912,6 +912,45 @@
       ['haptics', 'Vibration', null, null, () => 'vibrate' in navigator],
     ],
   };
+  // A small sample board so themes can be judged without leaving Settings.
+  const PREVIEW = [
+    '..........',
+    '....T.....',
+    '...TTT....',
+    '..........',
+    '....ggg...',
+    'I....gLL.O',
+    'IZZ.JJLSSO',
+    'IJZZJ.LSSO',
+  ];
+  function drawThemePreview() {
+    const cv = $('#theme-preview');
+    const w = cv.parentElement.clientWidth - 44;
+    if (w <= 0) return;
+    const s = Math.min(24, Math.floor(w / 10)), cols = 10, rows = PREVIEW.length;
+    const ctx = cv.getContext('2d'), d = Math.min(window.devicePixelRatio || 1, 3);
+    cv.width = cols * s * d; cv.height = rows * s * d;
+    cv.style.width = cols * s + 'px'; cv.style.height = rows * s + 'px';
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.fillStyle = theme.board || cssVar('--board');
+    ctx.fillRect(0, 0, cols * s, rows * s);
+    ctx.strokeStyle = cssVar('--board-line');
+    ctx.globalAlpha = 0.45; ctx.lineWidth = 1 / d;
+    ctx.beginPath();
+    for (let x = 1; x < cols; x++) { ctx.moveTo(x * s, 0); ctx.lineTo(x * s, rows * s); }
+    for (let y = 1; y < rows; y++) { ctx.moveTo(0, y * s); ctx.lineTo(cols * s, y * s); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    PREVIEW.forEach((row, y) => [...row].forEach((ch, x) => {
+      const px = x * s, py = y * s;
+      if (ch === 'g') {
+        const col = theme.colors.T;
+        ctx.strokeStyle = rgba(col, 0.5); ctx.fillStyle = rgba(col, 0.07); ctx.lineWidth = Math.max(1, Math.round(s * 0.05));
+        const p = s * 0.03 + ctx.lineWidth / 2;
+        ctx.fillRect(px + p, py + p, s - 2 * p, s - 2 * p); ctx.strokeRect(px + p, py + p, s - 2 * p, s - 2 * p);
+      } else if (ch !== '.') drawBlock(ctx, px, py, s, theme.colors[ch]);
+    }));
+  }
+
   function renderSettings() {
     const tbox = $('#themes');
     tbox.innerHTML = '';
@@ -923,6 +962,7 @@
       b.addEventListener('click', () => { settings.theme = key; saveSettings(); applyTheme(); renderSettings(); });
       tbox.appendChild(b);
     }
+    requestAnimationFrame(drawThemePreview);
     for (const [group, items] of Object.entries(SETTINGS)) {
       const box = $('#set-' + group);
       box.innerHTML = '';

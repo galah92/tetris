@@ -460,6 +460,7 @@ input:focus-visible + .sw { outline: 2px solid var(--muted); outline-offset: 2px
 .range output { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
 .range input { grid-column: 1 / -1; width: 100%; accent-color: var(--text); touch-action: pan-x; height: 28px; }
 
+#theme-preview { margin: 2px auto 4px; border-radius: 6px; border: 1px solid var(--line); background: var(--board); }
 .themes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .theme {
   border-radius: 10px;
