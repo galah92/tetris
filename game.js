@@ -3,7 +3,7 @@
   // ---------- Constants ----------
   const COLS = 10, ROWS = 20, BUF = 3, H = ROWS + BUF;
   const TYPES = 'IJLOSTZ';
-  const COLORS = { I: '#3ee0e8', J: '#4f7bff', L: '#ff9a3c', O: '#ffd63d', S: '#5fe07a', T: '#b36bff', Z: '#ff5470' };
+  const COLORS = { I: '#45c4d4', J: '#5672e8', L: '#e8954a', O: '#e9c75a', S: '#62bf78', T: '#9a72e6', Z: '#e25768' };
   const SHAPES = {
     I: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
     J: [[1, 0, 0], [1, 1, 1], [0, 0, 0]],
@@ -378,18 +378,20 @@
   }
 
   function drawBlock(ctx, x, y, s, color) {
-    const i = Math.max(0.5, s * 0.045), w = s - 2 * i, r = s * 0.17;
+    const gap = Math.max(1, s * 0.06), w = s - gap, x0 = x + gap / 2, y0 = y + gap / 2;
+    const r = Math.min(3, s * 0.08), edge = Math.max(1, s * 0.07);
     const g = ctx.createLinearGradient(x, y, x, y + s);
-    g.addColorStop(0, mix(color, 0.3));
-    g.addColorStop(0.5, color);
-    g.addColorStop(1, mix(color, -0.22));
+    g.addColorStop(0, mix(color, 0.1));
+    g.addColorStop(1, mix(color, -0.12));
     ctx.fillStyle = g;
-    rr(ctx, x + i, y + i, w, w, r); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    rr(ctx, x + i + s * 0.14, y + i + s * 0.09, w - s * 0.28, s * 0.16, s * 0.08); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-    ctx.lineWidth = Math.max(1, s * 0.035);
-    rr(ctx, x + i + ctx.lineWidth / 2, y + i + ctx.lineWidth / 2, w - ctx.lineWidth, w - ctx.lineWidth, r); ctx.stroke();
+    rr(ctx, x0, y0, w, w, r); ctx.fill();
+    ctx.save();
+    rr(ctx, x0, y0, w, w, r); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.fillRect(x0, y0, w, edge);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(x0, y0 + w - edge, w, edge);
+    ctx.restore();
   }
 
   function makeSprites() {
@@ -399,17 +401,19 @@
       const cv = document.createElement('canvas');
       cv.width = cv.height = px;
       const ctx = cv.getContext('2d');
-      drawBlock(ctx, 0, 0, px, t === 'X' ? '#5a5f80' : COLORS[t]);
+      drawBlock(ctx, 0, 0, px, t === 'X' ? '#3a3d4e' : COLORS[t]);
       sprites[t] = cv;
     }
     bgCanvas = document.createElement('canvas');
     bgCanvas.width = Math.round(COLS * c * dpr); bgCanvas.height = Math.round(ROWS * c * dpr);
     const g = bgCanvas.getContext('2d');
     g.scale(dpr, dpr);
-    g.fillStyle = 'rgba(255,255,255,0.028)';
-    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-      rr(g, x * c + c * 0.08, y * c + c * 0.08, c * 0.84, c * 0.84, c * 0.14); g.fill();
-    }
+    g.strokeStyle = 'rgba(255,255,255,0.045)';
+    g.lineWidth = 1 / dpr;
+    g.beginPath();
+    for (let x = 1; x < COLS; x++) { g.moveTo(x * c, 0); g.lineTo(x * c, ROWS * c); }
+    for (let y = 1; y < ROWS; y++) { g.moveTo(0, y * c); g.lineTo(COLS * c, y * c); }
+    g.stroke();
   }
 
   function setCanvas(cv, ctx, w, h) {
@@ -447,7 +451,7 @@
         ctx.drawImage(sprites[grey ? 'X' : v], x * c, (y - BUF) * c, c, c);
       }
       if (isClearing) {
-        ctx.fillStyle = `rgba(255,255,255,${0.55 * (1 - clearP)})`;
+        ctx.fillStyle = `rgba(255,255,255,${0.35 * (1 - clearP)})`;
         ctx.fillRect(0, (y - BUF) * c, W, c);
       }
     }
@@ -458,13 +462,15 @@
       if (settings.ghost) {
         const gy = ghostY(), col = COLORS[cur.t];
         if (gy !== cur.y) {
-          ctx.lineWidth = Math.max(1, c * 0.06);
-          ctx.strokeStyle = rgba(col, 0.55);
-          ctx.fillStyle = rgba(col, 0.09);
+          ctx.lineWidth = Math.max(1, Math.round(c * 0.05));
+          ctx.strokeStyle = rgba(col, 0.5);
+          ctx.fillStyle = rgba(col, 0.07);
+          const lw = ctx.lineWidth;
           for (const [cx, cy] of cells) {
             const yy = gy + cy - BUF; if (yy < 0) continue;
-            rr(ctx, (cur.x + cx) * c + c * 0.1, yy * c + c * 0.1, c * 0.8, c * 0.8, c * 0.14);
-            ctx.fill(); ctx.stroke();
+            const px = (cur.x + cx) * c, py = yy * c, pad = c * 0.03 + lw / 2;
+            ctx.fillRect(px + pad, py + pad, c - 2 * pad, c - 2 * pad);
+            ctx.strokeRect(px + pad, py + pad, c - 2 * pad, c - 2 * pad);
           }
         }
       }
@@ -482,26 +488,24 @@
       ctx.fillStyle = `rgba(255,255,255,${0.5 * (1 - f.t / 160)})`;
       for (const [x, y] of f.cells) {
         if (y < BUF) continue;
-        rr(ctx, x * c + c * 0.05, (y - BUF) * c + c * 0.05, c * 0.9, c * 0.9, c * 0.17); ctx.fill();
+        ctx.fillRect(x * c + c * 0.03, (y - BUF) * c + c * 0.03, c * 0.94, c * 0.94);
       }
     }
   }
 
-  function drawPiece(ctx, t, cx, cy, s, alpha = 1) {
+  function drawPiece(ctx, t, cx, cy, s, dim = false) {
     const cells = CELLS[t][0];
     const xs = cells.map(p => p[0]), ys = cells.map(p => p[1]);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
     const ox = cx - ((maxX - minX + 1) * s) / 2, oy = cy - ((maxY - minY + 1) * s) / 2;
-    ctx.globalAlpha = alpha;
-    for (const [x, y] of cells) drawBlock(ctx, ox + (x - minX) * s, oy + (y - minY) * s, s, COLORS[t]);
-    ctx.globalAlpha = 1;
+    for (const [x, y] of cells) drawBlock(ctx, ox + (x - minX) * s, oy + (y - minY) * s, s, dim ? '#3a3d4e' : COLORS[t]);
   }
 
   let holdDims, nextDims;
   function drawSide() {
     const [hw, hh, hs] = holdDims;
     hctx.clearRect(0, 0, hw, hh);
-    if (holdType) drawPiece(hctx, holdType, hw / 2, hh / 2, hs, holdUsed ? 0.35 : 1);
+    if (holdType) drawPiece(hctx, holdType, hw / 2, hh / 2, hs, holdUsed);
 
     const { w, h, slots } = nextDims;
     nctx.clearRect(0, 0, w, h);
@@ -560,8 +564,8 @@
       nextDims = { w, h: Math.round(c * 2.2 + c * 1.75 * 4), slots };
     } else {
       const s1 = Math.round(c * 0.5), s2 = Math.round(c * 0.38), h = Math.round(c * 1.25);
-      holdDims = [Math.round(c * 2.2), h, s1];
-      const first = c * 2.3, rest = c * 1.55;
+      holdDims = [Math.round(c * 2.0), h, s1];
+      const first = c * 2.1, rest = c * 1.45;
       const slots = [{ x: first / 2, y: h / 2, s: s1 }];
       for (let i = 0; i < 3; i++) slots.push({ x: first + rest * (i + 0.5), y: h / 2, s: s2 });
       nextDims = { w: Math.round(first + rest * 3), h, slots };
