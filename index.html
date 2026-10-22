@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="description" content="A fast, beautiful, offline-ready Tetris you can play anywhere.">
+<meta name="theme-color" content="#0a0c1b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tetris">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<title>Tetris</title>
+</head>
+<body>
+<main id="app">
+  <div id="game" class="side">
+    <section id="stats" class="panel">
+      <div class="stat score"><span class="k">Score</span><span class="v" id="score">0</span></div>
+      <div class="stat"><span class="k">Level</span><span class="v" id="level">1</span></div>
+      <div class="stat"><span class="k">Lines</span><span class="v" id="lines">0</span></div>
+      <div class="stat best"><span class="k">Best</span><span class="v" id="best">0</span></div>
+      <button id="pause" class="icon-btn" aria-label="Pause">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>
+      </button>
+    </section>
+    <section id="hold-panel" class="panel"><h2>Hold</h2><canvas id="hold"></canvas></section>
+    <div id="board-wrap"><canvas id="board"></canvas><div id="popup" aria-live="polite"></div></div>
+    <section id="next-panel" class="panel"><h2>Next</h2><canvas id="next"></canvas></section>
+  </div>
+
+  <div id="pad" hidden>
+    <button data-pad="left" aria-label="Move left"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button data-pad="right" aria-label="Move right"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    <button data-pad="down" aria-label="Soft drop"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button>
+    <button data-pad="drop" aria-label="Hard drop"><svg viewBox="0 0 24 24"><path d="M5 5l7 7 7-7M5 12l7 7 7-7"/></svg></button>
+    <button data-pad="hold" aria-label="Hold"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/></svg></button>
+    <button data-pad="ccw" aria-label="Rotate left"><svg viewBox="0 0 24 24"><path d="M9 4L5 8l4 4"/><path d="M5 8h8a6 6 0 0 1 0 12h-2"/></svg></button>
+    <button data-pad="cw" aria-label="Rotate right"><svg viewBox="0 0 24 24"><path d="M15 4l4 4-4 4"/><path d="M19 8h-8a6 6 0 0 0 0 12h2"/></svg></button>
+  </div>
+
+  <div id="overlay" class="show">
+    <div class="card" id="menu">
+      <h1 class="logo" aria-label="Tetris"><i>T</i><i>E</i><i>T</i><i>R</i><i>I</i><i>S</i></h1>
+      <p class="sub">Best <b class="best-val">0</b></p>
+      <button class="btn primary" data-act="start">Play</button>
+      <div class="settings"></div>
+      <details class="help">
+        <summary>How to play</summary>
+        <div class="help-touch">
+          <h3>Touch</h3>
+          <ul>
+            <li><b>Drag</b> sideways to move</li>
+            <li><b>Tap</b> right side to rotate ↻, left side ↺</li>
+            <li><b>Drag down</b> to soft drop</li>
+            <li><b>Flick down</b> to hard drop</li>
+            <li><b>Flick up</b> to hold</li>
+          </ul>
+        </div>
+        <div class="help-keys">
+          <h3>Keyboard</h3>
+          <ul>
+            <li><kbd>←</kbd> <kbd>→</kbd> move, <kbd>↓</kbd> soft drop</li>
+            <li><kbd>↑</kbd> / <kbd>X</kbd> rotate ↻, <kbd>Z</kbd> rotate ↺</li>
+            <li><kbd>Space</kbd> hard drop, <kbd>C</kbd> / <kbd>Shift</kbd> hold</li>
+            <li><kbd>Esc</kbd> / <kbd>P</kbd> pause</li>
+          </ul>
+        </div>
+        <p class="tip">Install it: on iPhone/iPad tap Share → Add to Home Screen. It works offline.</p>
+      </details>
+    </div>
+    <div class="card" id="paused">
+      <h2>Paused</h2>
+      <button class="btn primary" data-act="resume">Resume</button>
+      <button class="btn" data-act="restart">Restart</button>
+      <div class="settings"></div>
+      <button class="btn ghost" data-act="menu">Main menu</button>
+    </div>
+    <div class="card" id="over">
+      <h2>Game over</h2>
+      <p class="final"><span id="final-score">0</span></p>
+      <p class="sub" id="final-detail"></p>
+      <p class="sub new-best" id="new-best" hidden>New best!</p>
+      <button class="btn primary" data-act="start">Play again</button>
+      <button class="btn ghost" data-act="menu">Main menu</button>
+    </div>
+  </div>
+</main>
+<script src="game.js"></script>
+</body>
+</html>
