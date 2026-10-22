@@ -58,28 +58,68 @@
     zen: { name: 'Zen', desc: 'No speed-up, no game over. Just play.', zen: true, rank: 'score' },
   };
 
+  // Each theme pairs a palette with a tile style. `board` is the solid board colour used on canvases,
+  // `flash` the rgb used for lock flashes and the line-clear sweep.
   const THEMES = {
     midnight: {
-      name: 'Midnight', style: 'soft', meta: '#0c0d11', dead: '#3a3d4e',
+      name: 'Midnight', style: 'soft', meta: '#0c0d11', board: '#07080b', dead: '#3a3d4e', flash: '255,255,255',
       colors: { I: '#45c4d4', J: '#5672e8', L: '#e8954a', O: '#e9c75a', S: '#62bf78', T: '#9a72e6', Z: '#e25768' },
     },
     paper: {
-      name: 'Paper', style: 'flat', meta: '#efece5', dead: '#cfcabf',
+      name: 'Paper', style: 'flat', meta: '#efece5', board: '#faf8f3', dead: '#cfcabf', flash: '60,50,30',
       colors: { I: '#5ea8b2', J: '#4d66b0', L: '#d58a45', O: '#dcb54f', S: '#6ea46f', T: '#8b67b1', Z: '#c95d5d' },
     },
+    aurora: {
+      name: 'Aurora', style: 'glass', meta: '#0a0f1f', board: '#101a30', dead: '#4a5878', flash: '255,255,255',
+      colors: { I: '#7ff3e8', J: '#8fb2ff', L: '#ffc08a', O: '#fff08f', S: '#9ef7a8', T: '#d7a6ff', Z: '#ff9ec4' },
+    },
+    jewel: {
+      name: 'Jewel', style: 'gem', meta: '#140a1f', board: '#0b0612', dead: '#3b3045', flash: '255,240,255',
+      colors: { I: '#3fd0d4', J: '#1f5fd0', L: '#f2a65a', O: '#e8be1c', S: '#1fa35b', T: '#9966cc', Z: '#e0115f' },
+    },
+    sumi: {
+      name: 'Sumi', style: 'ink', meta: '#efe8da', board: '#f7f2e7', dead: '#cbc2b0', flash: '192,57,43',
+      colors: { I: '#1f2023', J: '#2f3b55', L: '#8a3b2b', O: '#1f2023', S: '#3c4a3e', T: '#c0392b', Z: '#4a3f35' },
+    },
+    terracotta: {
+      name: 'Terracotta', style: 'mosaic', meta: '#e9dccb', board: '#f4ece1', dead: '#cbbba6', flash: '120,70,30',
+      colors: { I: '#2f7f7a', J: '#3d4f8a', L: '#c8643b', O: '#d9a441', S: '#7d8a4a', T: '#7a4466', Z: '#b5473a' },
+    },
+    bauhaus: {
+      name: 'Bauhaus', style: 'dot', meta: '#f2ede3', board: '#f8f5ee', dead: '#d6cfc1', flash: '31,31,31',
+      colors: { I: '#1b4b9b', J: '#1f1f1f', L: '#e4572e', O: '#f2b705', S: '#2a9d8f', T: '#d7263d', Z: '#6a994e' },
+    },
+    blueprint: {
+      name: 'Blueprint', style: 'blueprint', meta: '#123a6b', board: '#15467f', dead: '#3d6aa3', flash: '255,255,255', grid: 0.9,
+      colors: { I: '#bfe9ff', J: '#a9c4ff', L: '#ffd2a8', O: '#fff1a8', S: '#c4f5c8', T: '#e2c6ff', Z: '#ffc1c9' },
+    },
+    synthwave: {
+      name: 'Synthwave', style: 'stripe', meta: '#12062a', board: '#0c0418', dead: '#3a2550', flash: '255,120,220', grid: 0.8,
+      colors: { I: '#2de2e6', J: '#7b5cff', L: '#ff9e3d', O: '#ffd319', S: '#00f5a0', T: '#ff3cac', Z: '#ff3864' },
+    },
     neon: {
-      name: 'Neon', style: 'neon', meta: '#05050a', dead: '#2b2e44',
+      name: 'Neon', style: 'neon', meta: '#05050a', board: '#030308', dead: '#2b2e44', flash: '255,255,255',
       colors: { I: '#00f0ff', J: '#4d7bff', L: '#ff9a1f', O: '#ffe14d', S: '#3dff7a', T: '#c45bff', Z: '#ff3d7f' },
     },
-    graphite: {
-      name: 'Graphite', style: 'soft', meta: '#111111', dead: '#2c2c2c',
-      colors: { I: '#e8e8e8', J: '#8c8c8c', L: '#bdbdbd', O: '#f6f6f6', S: '#a3a3a3', T: '#d4d4d4', Z: '#747474' },
+    arcade: {
+      name: '8-Bit', style: 'pixel', meta: '#000000', board: '#000000', dead: '#444444', flash: '255,255,255',
+      colors: { I: '#3cbcfc', J: '#0058f8', L: '#f87858', O: '#f8b800', S: '#58d854', T: '#d800cc', Z: '#e40058' },
+    },
+    terminal: {
+      name: 'Terminal', style: 'ascii', meta: '#000000', board: '#020a03', dead: '#145522', flash: '51,255,102',
+      colors: { I: '#33ff66', J: '#22cc55', L: '#7dffa4', O: '#33ff66', S: '#22cc55', T: '#ffcc33', Z: '#7dffa4' },
     },
     retro: {
-      name: 'Retro', style: 'retro', meta: '#9bbc0f', dead: '#6b8c0f', board: '#8bac0f',
+      name: 'Retro', style: 'retro', meta: '#9bbc0f', board: '#8bac0f', dead: '#6b8c0f', flash: '155,188,15',
       colors: { I: '#0f380f', J: '#306230', L: '#0f380f', O: '#306230', S: '#0f380f', T: '#306230', Z: '#306230' },
     },
+    graphite: {
+      name: 'Graphite', style: 'soft', meta: '#111111', board: '#0a0a0a', dead: '#2c2c2c', flash: '255,255,255',
+      colors: { I: '#e8e8e8', J: '#8c8c8c', L: '#bdbdbd', O: '#f6f6f6', S: '#a3a3a3', T: '#d4d4d4', Z: '#747474' },
+    },
   };
+  // Tile styles with per-cell variation get several sprite variants.
+  const VARIANTS = { ink: 4, mosaic: 4 };
 
   // ---------- DOM ----------
   const $ = s => document.querySelector(s);
@@ -559,73 +599,195 @@
     ctx.closePath();
   }
 
-  function drawBlock(ctx, x, y, s, color, style = theme.style) {
-    if (style === 'neon') {
-      const gap = s * 0.14, w = s - 2 * gap, lw = Math.max(1, s * 0.07);
-      ctx.save();
-      ctx.shadowColor = color; ctx.shadowBlur = s * 0.35;
-      ctx.fillStyle = rgba(color, 0.18);
-      rr(ctx, x + gap, y + gap, w, w, s * 0.1); ctx.fill();
-      ctx.strokeStyle = color; ctx.lineWidth = lw;
-      ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = rgba(color, 0.5);
-      rr(ctx, x + s * 0.36, y + s * 0.36, s * 0.28, s * 0.28, s * 0.05); ctx.fill();
-      return;
-    }
-    if (style === 'retro') {
-      const gap = Math.max(1, Math.round(s * 0.05)), w = s - gap;
-      ctx.fillStyle = color; ctx.fillRect(x + gap / 2, y + gap / 2, w, w);
-      const i1 = s * 0.2, i2 = s * 0.33;
-      ctx.fillStyle = theme.board; ctx.fillRect(x + i1, y + i1, s - 2 * i1, s - 2 * i1);
-      ctx.fillStyle = color; ctx.fillRect(x + i2, y + i2, s - 2 * i2, s - 2 * i2);
-      return;
-    }
-    const gap = Math.max(1, s * 0.06), w = s - gap, x0 = x + gap / 2, y0 = y + gap / 2;
-    const r = Math.min(3, s * 0.08);
-    if (style === 'flat') {
-      ctx.fillStyle = color;
-      rr(ctx, x0, y0, w, w, r); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,0.08)';
-      ctx.fillRect(x0 + r / 2, y0 + w - Math.max(1, s * 0.06), w - r, Math.max(1, s * 0.06));
-      return;
-    }
-    const edge = Math.max(1, s * 0.07);
-    const g = ctx.createLinearGradient(x, y, x, y + s);
-    g.addColorStop(0, mix(color, 0.1));
-    g.addColorStop(1, mix(color, -0.12));
-    ctx.fillStyle = g;
-    rr(ctx, x0, y0, w, w, r); ctx.fill();
+  // Small deterministic PRNG so textured tiles look the same every time they are drawn.
+  const rng = seed => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+  function drawBlock(ctx, x, y, s, color, th = theme, variant = 0) {
+    const style = th.style;
+    const rand = rng(1 + variant * 7919 + color.charCodeAt(1) * 31 + color.charCodeAt(3));
     ctx.save();
-    rr(ctx, x0, y0, w, w, r); ctx.clip();
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.fillRect(x0, y0, w, edge);
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.fillRect(x0, y0 + w - edge, w, edge);
+    switch (style) {
+      case 'neon': {
+        const gap = s * 0.14, w = s - 2 * gap;
+        ctx.shadowColor = color; ctx.shadowBlur = s * 0.35;
+        ctx.fillStyle = rgba(color, 0.18);
+        rr(ctx, x + gap, y + gap, w, w, s * 0.1); ctx.fill();
+        ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, s * 0.07); ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = rgba(color, 0.5);
+        rr(ctx, x + s * 0.36, y + s * 0.36, s * 0.28, s * 0.28, s * 0.05); ctx.fill();
+        break;
+      }
+      case 'retro': {
+        const gap = Math.max(1, Math.round(s * 0.05)), w = s - gap;
+        ctx.fillStyle = color; ctx.fillRect(x + gap / 2, y + gap / 2, w, w);
+        const i1 = s * 0.2, i2 = s * 0.33;
+        ctx.fillStyle = th.board; ctx.fillRect(x + i1, y + i1, s - 2 * i1, s - 2 * i1);
+        ctx.fillStyle = color; ctx.fillRect(x + i2, y + i2, s - 2 * i2, s - 2 * i2);
+        break;
+      }
+      case 'flat': {
+        const gap = Math.max(1, s * 0.06), w = s - gap, r = Math.min(3, s * 0.08);
+        ctx.fillStyle = color;
+        rr(ctx, x + gap / 2, y + gap / 2, w, w, r); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        ctx.fillRect(x + gap / 2 + r / 2, y + gap / 2 + w - Math.max(1, s * 0.06), w - r, Math.max(1, s * 0.06));
+        break;
+      }
+      case 'glass': {
+        // Frosted glass: translucent body, bright rim, soft sheen across the top.
+        const gap = s * 0.07, w = s - 2 * gap, r = s * 0.2, x0 = x + gap, y0 = y + gap;
+        ctx.fillStyle = rgba(color, 0.32);
+        rr(ctx, x0, y0, w, w, r); ctx.fill();
+        ctx.clip();
+        const g = ctx.createLinearGradient(x0, y0, x0 + w, y0 + w);
+        g.addColorStop(0, 'rgba(255,255,255,0.45)');
+        g.addColorStop(0.45, 'rgba(255,255,255,0.06)');
+        g.addColorStop(1, rgba(color, 0.35));
+        ctx.fillStyle = g; ctx.fillRect(x0, y0, w, w);
+        ctx.restore(); ctx.save();
+        ctx.strokeStyle = rgba(color, 0.95); ctx.lineWidth = Math.max(1, s * 0.05);
+        rr(ctx, x0 + ctx.lineWidth / 2, y0 + ctx.lineWidth / 2, w - ctx.lineWidth, w - ctx.lineWidth, r); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath(); ctx.arc(x0 + w * 0.26, y0 + w * 0.24, s * 0.06, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case 'gem': {
+        // Faceted cut: a table in the middle and four bevels catching light from the top-left.
+        const gap = Math.max(1, s * 0.05), x0 = x + gap / 2, y0 = y + gap / 2, w = s - gap, t = w * 0.24;
+        const P = (...pts) => { ctx.beginPath(); pts.forEach(([px, py], k) => (k ? ctx.lineTo(x0 + px, y0 + py) : ctx.moveTo(x0 + px, y0 + py))); ctx.closePath(); ctx.fill(); };
+        ctx.fillStyle = mix(color, 0.42); P([0, 0], [w, 0], [w - t, t], [t, t]);
+        ctx.fillStyle = mix(color, 0.18); P([0, 0], [t, t], [t, w - t], [0, w]);
+        ctx.fillStyle = mix(color, -0.2); P([w, 0], [w, w], [w - t, w - t], [w - t, t]);
+        ctx.fillStyle = mix(color, -0.4); P([0, w], [t, w - t], [w - t, w - t], [w, w]);
+        const g = ctx.createLinearGradient(x0 + t, y0 + t, x0 + w - t, y0 + w - t);
+        g.addColorStop(0, mix(color, 0.12)); g.addColorStop(1, mix(color, -0.08));
+        ctx.fillStyle = g; P([t, t], [w - t, t], [w - t, w - t], [t, w - t]);
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.beginPath(); ctx.arc(x0 + t * 1.5, y0 + t * 1.45, s * 0.045, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case 'ink': {
+        // Brush-stroke square: wobbly edges, uneven ink, a dry-brush streak.
+        const m = s * 0.1, pts = [];
+        const corners = [[m, m], [s - m, m], [s - m, s - m], [m, s - m]];
+        corners.forEach(([cx, cy], k) => {
+          const [nx, ny] = corners[(k + 1) % 4];
+          for (let q = 0; q < 4; q++) {
+            const f = q / 4, j = s * 0.03;
+            pts.push([cx + (nx - cx) * f + (rand() - 0.5) * j * 2, cy + (ny - cy) * f + (rand() - 0.5) * j * 2]);
+          }
+        });
+        ctx.beginPath();
+        pts.forEach(([px, py], k) => (k ? ctx.lineTo(x + px, y + py) : ctx.moveTo(x + px, y + py)));
+        ctx.closePath();
+        ctx.fillStyle = rgba(color, 0.86 + rand() * 0.1); ctx.fill();
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = s * 0.04;
+        for (let k = 0; k < 3; k++) {
+          const yy = y + s * (0.3 + rand() * 0.45);
+          ctx.beginPath(); ctx.moveTo(x + s * (0.15 + rand() * 0.2), yy); ctx.lineTo(x + s * (0.6 + rand() * 0.3), yy + (rand() - 0.5) * s * 0.08); ctx.stroke();
+        }
+        break;
+      }
+      case 'mosaic': {
+        // Four glazed sub-tiles with grout lines and slight colour variation.
+        const g = Math.max(1, s * 0.07), h = (s - 3 * g) / 2;
+        for (let k = 0; k < 4; k++) {
+          const px = x + g + (k % 2) * (h + g), py = y + g + Math.floor(k / 2) * (h + g);
+          ctx.fillStyle = mix(color, (rand() - 0.5) * 0.24);
+          rr(ctx, px, py, h, h, h * 0.18); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.22)';
+          rr(ctx, px + h * 0.15, py + h * 0.12, h * 0.5, h * 0.16, h * 0.08); ctx.fill();
+        }
+        break;
+      }
+      case 'dot': {
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.4, 0, Math.PI * 2); ctx.fill();
+        break;
+      }
+      case 'blueprint': {
+        const lw = Math.max(1, s * 0.05), m = s * 0.12 + lw / 2, w = s - 2 * m;
+        ctx.fillStyle = rgba(color, 0.18); ctx.fillRect(x + m, y + m, w, w);
+        ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.strokeRect(x + m, y + m, w, w);
+        ctx.beginPath(); ctx.rect(x + m, y + m, w, w); ctx.clip();
+        ctx.globalAlpha = 0.45; ctx.lineWidth = Math.max(1, s * 0.03);
+        for (let k = -1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(x + m + k * w / 3, y + m + w); ctx.lineTo(x + m + (k + 1) * w / 3 + w / 3, y + m - w / 3); ctx.stroke(); }
+        break;
+      }
+      case 'stripe': {
+        // Synthwave: hot gradient, scanlines, a glowing top edge.
+        const gap = Math.max(1, s * 0.06), x0 = x + gap / 2, y0 = y + gap / 2, w = s - gap;
+        const g = ctx.createLinearGradient(x0, y0, x0, y0 + w);
+        g.addColorStop(0, mix(color, 0.25)); g.addColorStop(1, mix(color, -0.45));
+        ctx.fillStyle = g; ctx.fillRect(x0, y0, w, w);
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        for (let yy = y0 + w * 0.35; yy < y0 + w; yy += w / 7) ctx.fillRect(x0, yy, w, Math.max(1, w / 18));
+        ctx.fillStyle = mix(color, 0.6); ctx.fillRect(x0, y0, w, Math.max(1, s * 0.08));
+        break;
+      }
+      case 'pixel': {
+        // NES-style bevel on a pixel grid.
+        const p = Math.max(1, Math.round(s / 8)), x0 = Math.round(x), y0 = Math.round(y), w = Math.round(s) - p;
+        ctx.fillStyle = color; ctx.fillRect(x0, y0, w, w);
+        ctx.fillStyle = mix(color, 0.5); ctx.fillRect(x0, y0, w, p); ctx.fillRect(x0, y0, p, w);
+        ctx.fillStyle = mix(color, -0.45); ctx.fillRect(x0, y0 + w - p, w, p); ctx.fillRect(x0 + w - p, y0, p, w);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(x0 + p, y0 + p, p, p);
+        break;
+      }
+      case 'ascii': {
+        ctx.fillStyle = color;
+        ctx.shadowColor = color; ctx.shadowBlur = s * 0.25;
+        ctx.font = `700 ${Math.round(s * 0.78)}px ui-monospace, Menlo, Consolas, monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('[]', x + s / 2, y + s * 0.53);
+        break;
+      }
+      default: { // soft
+        const gap = Math.max(1, s * 0.06), w = s - gap, x0 = x + gap / 2, y0 = y + gap / 2;
+        const r = Math.min(3, s * 0.08), edge = Math.max(1, s * 0.07);
+        const g = ctx.createLinearGradient(x, y, x, y + s);
+        g.addColorStop(0, mix(color, 0.1));
+        g.addColorStop(1, mix(color, -0.12));
+        ctx.fillStyle = g;
+        rr(ctx, x0, y0, w, w, r); ctx.fill();
+        ctx.clip();
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.fillRect(x0, y0, w, edge);
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        ctx.fillRect(x0, y0 + w - edge, w, edge);
+      }
+    }
     ctx.restore();
   }
 
   function makeSprites() {
     sprites = {};
-    const px = Math.round(c * dpr);
+    const px = Math.round(c * dpr), n = VARIANTS[theme.style] || 1;
     for (const t of [...TYPES, 'X']) {
-      const cv = document.createElement('canvas');
-      cv.width = cv.height = px;
-      drawBlock(cv.getContext('2d'), 0, 0, px, t === 'X' ? theme.dead : theme.colors[t]);
-      sprites[t] = cv;
+      sprites[t] = [];
+      for (let v = 0; v < n; v++) {
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = px;
+        drawBlock(cv.getContext('2d'), 0, 0, px, t === 'X' ? theme.dead : theme.colors[t], theme, v);
+        sprites[t].push(cv);
+      }
     }
     bgCanvas = document.createElement('canvas');
     bgCanvas.width = Math.round(COLS * c * dpr); bgCanvas.height = Math.round(ROWS * c * dpr);
     const g = bgCanvas.getContext('2d');
     g.scale(dpr, dpr);
     g.strokeStyle = cssVar('--board-line') || 'rgba(255,255,255,0.1)';
-    g.globalAlpha = 0.45;
+    g.globalAlpha = theme.grid || 0.45;
     g.lineWidth = 1 / dpr;
     g.beginPath();
     for (let x = 1; x < COLS; x++) { g.moveTo(x * c, 0); g.lineTo(x * c, ROWS * c); }
     for (let y = 1; y < ROWS; y++) { g.moveTo(0, y * c); g.lineTo(COLS * c, y * c); }
     g.stroke();
   }
+  // Variant chosen by board position so textured themes don't repeat one tile everywhere.
+  const sprite = (t, x, y) => { const v = sprites[t]; return v[(x * 7 + y * 13) % v.length]; };
 
   function setCanvas(cv, ctx, w, h) {
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
@@ -656,11 +818,11 @@
         // Cells shrink into a line while a light sweeps across the row.
         const sh = c * (1 - ease);
         ctx.globalAlpha = 1 - ease * 0.6;
-        for (let x = 0; x < COLS; x++) if (board[y][x]) ctx.drawImage(sprites[board[y][x]], x * c, py + (c - sh) / 2, c, sh);
+        for (let x = 0; x < COLS; x++) if (board[y][x]) ctx.drawImage(sprite(board[y][x], x, y), x * c, py + (c - sh) / 2, c, sh);
         ctx.globalAlpha = 1;
         const band = W * 0.5, sx = -band + (W + band) * ease;
         const g = ctx.createLinearGradient(sx, 0, sx + band, 0);
-        const glow = theme.style === 'retro' ? '15,56,15' : theme.style === 'flat' ? '255,255,255' : '255,255,255';
+        const glow = theme.flash;
         g.addColorStop(0, `rgba(${glow},0)`);
         g.addColorStop(0.7, `rgba(${glow},${0.55 * (1 - clearP * 0.5)})`);
         g.addColorStop(1, `rgba(${glow},0)`);
@@ -673,11 +835,11 @@
         if (!v) continue;
         if (y < highest) highest = y;
         const grey = overAnim && H - 1 - y < overRows;
-        ctx.drawImage(sprites[grey ? 'X' : v], x * c, py, c, c);
+        ctx.drawImage(sprite(grey ? 'X' : v, x, y), x * c, py, c, c);
       }
     }
     if (clearing && clearing.big) {
-      ctx.fillStyle = `rgba(255,255,255,${0.12 * (1 - clearP)})`;
+      ctx.fillStyle = `rgba(${theme.flash},${0.12 * (1 - clearP)})`;
       ctx.fillRect(0, 0, W, Hh);
     }
     boardWrap.classList.toggle('danger', (state === 'play' || state === 'count') && !M.zen && highest - BUF < 4);
@@ -704,12 +866,12 @@
       ctx.globalAlpha = fade;
       for (const [cx, cy] of cells) {
         const yy = cur.y + cy - BUF; if (yy < 0) continue;
-        ctx.drawImage(sprites[cur.t], (cur.x + cx) * c, yy * c, c, c);
+        ctx.drawImage(sprite(cur.t, cur.x + cx, cur.y + cy), (cur.x + cx) * c, yy * c, c, c);
       }
       ctx.globalAlpha = 1;
     }
 
-    const flashCol = theme.style === 'retro' ? '155,188,15' : '255,255,255';
+    const flashCol = theme.flash;
     for (const f of flashes) {
       ctx.fillStyle = `rgba(${flashCol},${0.5 * (1 - f.t / 220)})`;
       for (const [x, y] of f.cells) {
@@ -820,7 +982,6 @@
     theme = THEMES[settings.theme];
     document.documentElement.dataset.theme = settings.theme;
     $('meta[name="theme-color"]').setAttribute('content', theme.meta);
-    if (!theme.board) theme.board = cssVar('--board');
     makeSprites();
     drawBoard();
     drawSide();
@@ -932,10 +1093,10 @@
     cv.width = cols * s * d; cv.height = rows * s * d;
     cv.style.width = cols * s + 'px'; cv.style.height = rows * s + 'px';
     ctx.setTransform(d, 0, 0, d, 0, 0);
-    ctx.fillStyle = theme.board || cssVar('--board');
+    ctx.fillStyle = theme.board;
     ctx.fillRect(0, 0, cols * s, rows * s);
     ctx.strokeStyle = cssVar('--board-line');
-    ctx.globalAlpha = 0.45; ctx.lineWidth = 1 / d;
+    ctx.globalAlpha = theme.grid || 0.45; ctx.lineWidth = 1 / d;
     ctx.beginPath();
     for (let x = 1; x < cols; x++) { ctx.moveTo(x * s, 0); ctx.lineTo(x * s, rows * s); }
     for (let y = 1; y < rows; y++) { ctx.moveTo(0, y * s); ctx.lineTo(cols * s, y * s); }
@@ -947,7 +1108,7 @@
         ctx.strokeStyle = rgba(col, 0.5); ctx.fillStyle = rgba(col, 0.07); ctx.lineWidth = Math.max(1, Math.round(s * 0.05));
         const p = s * 0.03 + ctx.lineWidth / 2;
         ctx.fillRect(px + p, py + p, s - 2 * p, s - 2 * p); ctx.strokeRect(px + p, py + p, s - 2 * p, s - 2 * p);
-      } else if (ch !== '.') drawBlock(ctx, px, py, s, theme.colors[ch]);
+      } else if (ch !== '.') drawBlock(ctx, px, py, s, theme.colors[ch], theme, (x * 7 + y * 13) % (VARIANTS[theme.style] || 1));
     }));
   }
 
@@ -957,8 +1118,15 @@
     for (const [key, t] of Object.entries(THEMES)) {
       const b = document.createElement('button');
       b.className = 'theme' + (key === settings.theme ? ' on' : '');
-      const bg = t.board || t.meta;
-      b.innerHTML = `<i style="background:${bg}">${['T', 'I', 'Z'].map(p => `<b style="background:${t.colors[p]}"></b>`).join('')}</i>${t.name}`;
+      // Swatch: three tiles drawn in the theme's own style.
+      const cv = document.createElement('canvas'), sz = 16, d = Math.min(window.devicePixelRatio || 1, 3);
+      cv.width = sz * 3 * d + 8 * d; cv.height = sz * d + 8 * d;
+      cv.style.width = sz * 3 + 8 + 'px'; cv.style.height = sz + 8 + 'px';
+      const x = cv.getContext('2d'); x.scale(d, d);
+      x.fillStyle = t.board; rr(x, 0, 0, sz * 3 + 8, sz + 8, 5); x.fill();
+      ['T', 'I', 'Z'].forEach((p, k) => drawBlock(x, 4 + k * sz, 4, sz, t.colors[p], t, k));
+      b.appendChild(cv);
+      b.appendChild(document.createTextNode(t.name));
       b.addEventListener('click', () => { settings.theme = key; saveSettings(); applyTheme(); renderSettings(); });
       tbox.appendChild(b);
     }
